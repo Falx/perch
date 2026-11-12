@@ -294,9 +294,10 @@ function P:HandleCommand(cmd, rest)
   local db = self.db.bar
 
   if cmd == "" or cmd == "config" or cmd == "options" then
-    self:ToggleOptions()
+    local page = (rest or ""):lower():match("^%s*(%S+)")
+    self:ToggleOptions(page)
   elseif cmd == "frame" then
-    self:ShowOptionsFrame()
+    self:ShowOptionsFrame((rest or ""):lower():match("^%s*(%S+)"))
   elseif cmd == "lock" then
     db.locked = true
     self:Print("Bar locked.")

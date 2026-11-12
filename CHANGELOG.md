@@ -9,6 +9,14 @@ First working build.
 
 ### Added
 
+- Settings are split into subpages: **General** (six toggles including
+  click-through, plus a font selector), **Appearance** and **Elements**, under a
+  **Perch** landing page. Tabs are used when the client lacks the subcategory API.
+- `/perch config <general|appearance|elements>` opens a page directly.
+- LibSharedMedia-3.0 embedded; fonts from it (and the built-in set) are selectable.
+  An unresolvable font falls back to the default instead of breaking the bar.
+- `/perch doctor` reports subcategory support, page count and LibSharedMedia.
+
 - LibDataBroker-1.1 display: discovers data objects at login and on late
   registration, updates via attribute callbacks with a 1-second poll fallback.
 - Broker cells with icon, text, per-plugin click forwarding and tooltips.

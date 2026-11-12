@@ -1,6 +1,6 @@
 # Vendored libraries
 
-Perch embeds three libraries so users do not need to install anything else.
+Perch embeds four libraries so users do not need to install anything else.
 They keep their own licenses; Perch's MIT license does not cover them.
 
 ## LibStub
@@ -23,6 +23,16 @@ They keep their own licenses; Perch's MIT license does not cover them.
 - Version: minor 4
 - Source: https://github.com/tekkub/libdatabroker-1-1
 - License: **MIT**
+
+## LibSharedMedia-3.0
+
+- File: `Perch/Libs/LibSharedMedia-3.0/LibSharedMedia-3.0.lua`
+- Version: minor 12000005 (12.0.0 v5), copied from the BugSack addon in the
+  Forever client, where it is known to load
+- Source: https://www.curseforge.com/wow/addons/libsharedmedia-3-0
+- License: **LGPL v2.1** (stated in the file header). The file is unmodified and
+  kept as a separate library file, so users can replace it.
+- Needs `C_UIFileAsset.IsKnownFile` (present on 16001; `/perch doctor` probes it).
 
 ## Updating
 

@@ -132,6 +132,20 @@ function P:Doctor()
   add("  CreateCheckbox: %s", probeTable("Settings", "CreateCheckbox"))
   add("  CreateSlider: %s", probeTable("Settings", "CreateSlider"))
   add("  CreateSliderOptions: %s", probeTable("Settings", "CreateSliderOptions"))
+  add("  RegisterCanvasLayoutSubcategory: %s", probeTable("Settings", "RegisterCanvasLayoutSubcategory"))
+  do
+    local registered = 0
+    for _ in pairs(self.optionsSubcategories or {}) do
+      registered = registered + 1
+    end
+    add("options pages: %d (%s)", #self.pages,
+      self.optionsSubcategories and string.format("%d subcategories", registered) or "tabbed")
+  end
+
+  local lsm = self.GetLSM()
+  add("LibSharedMedia: %s (%d fonts, %d backgrounds)", lsm and "ok" or "MISSING",
+    #self:MediaList("font"), #self:MediaList("background"))
+  add("  C_UIFileAsset.IsKnownFile: %s", probeTable("C_UIFileAsset", "IsKnownFile"))
 
   add("SecureCmdOptionParse: %s", probeGlobal("SecureCmdOptionParse"))
   add("InCombatLockdown: %s", probeGlobal("InCombatLockdown"))

@@ -4,13 +4,14 @@
 ## Author: Falx
 ## Version: 0.1.0
 ## SavedVariables: PerchDB
-## OptionalDeps: LibDataBroker-1.1
+## OptionalDeps: LibDataBroker-1.1, LibSharedMedia-3.0
 ## X-Website: https://github.com/Falx/perch
 ## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.lua
 
 Core.lua
 Bar.lua
@@ -18,5 +19,9 @@ Element.lua
 Command.lua
 Broker.lua
 Builtins.lua
+Media.lua
 Doctor.lua
 Config.lua
+ConfigGeneral.lua
+ConfigAppearance.lua
+ConfigElements.lua

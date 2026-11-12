@@ -11,7 +11,8 @@ phase checklist.
 - Never prefix with `Broker_` (reserved for LDB plugins) or `Lib` (reserved for
   libraries).
 - **No Ace3.** Options use Blizzard's native `Settings` API, feature-detected, with
-  a standalone frame fallback. Do not vendor Ace3.
+  a standalone frame fallback. Do not vendor Ace3. LibSharedMedia-3.0 is the one
+  allowed extra library (fonts and textures); it is embedded, never required.
 - Saved variables: `PerchDB`. Globals: `Perch_*`. Addon namespace: `_G.Perch`.
 
 ## Before every commit
@@ -27,8 +28,13 @@ so new files must be added to the TOC in load order.
 ## Load order (Perch.toc)
 
 ```
-Core -> Bar -> Element -> Command -> Broker -> Builtins -> Doctor -> Config
+Core -> Bar -> Element -> Command -> Broker -> Builtins -> Media -> Doctor
+     -> Config -> ConfigGeneral -> ConfigAppearance -> ConfigElements
 ```
+
+`Config.lua` is the options framework (`P.UI` widgets, shared picker, page
+registry). Each `Config*.lua` page file calls `P:RegisterPage` at load; the pages
+become Settings subcategories, or tabs when the client has no subcategory API.
 
 `Core.lua` owns `_G.Perch`, the DB defaults and the `/perch` dispatcher. Every
 other file starts with:

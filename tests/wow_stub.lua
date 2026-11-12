@@ -90,6 +90,12 @@ function GetLocale()
   return "enUS"
 end
 
+C_UIFileAsset = {
+  IsKnownFile = function()
+    return true
+  end,
+}
+
 function GetCVar()
   return "1"
 end
@@ -296,6 +302,10 @@ local function newFrame(kind, name, parent)
   function frame:SetTexCoord() end
 
   function frame:SetFont(path, size)
+    -- A path that does not resolve fails the way the client does.
+    if tostring(path):find("Missing", 1, true) then
+      return false
+    end
     self.fontPath = path
     self.fontSize = size or self.fontSize
     return true
@@ -535,6 +545,13 @@ end
 
 function Settings.RegisterCanvasLayoutCategory(frame, name)
   return { ID = name, name = name, frame = frame }
+end
+
+function Settings.RegisterCanvasLayoutSubcategory(parent, frame, name)
+  local sub = { ID = name, name = name, frame = frame, parent = parent }
+  Stub.subcategories = Stub.subcategories or {}
+  Stub.subcategories[#Stub.subcategories + 1] = sub
+  return sub
 end
 
 function Settings.RegisterAddOnCategory(category)

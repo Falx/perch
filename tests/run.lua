@@ -365,6 +365,103 @@ P:RefreshOptions()
 check(#P.optionWidgets > 0, "options widgets can be refreshed")
 
 --------------------------------------------------------------------------
+-- Settings pages
+--------------------------------------------------------------------------
+
+section("settings pages")
+
+equal(#Stub.subcategories, 3, "General, Appearance and Elements register as subcategories")
+equal(Stub.subcategories[1].name, "General", "first subcategory is General")
+equal(Stub.subcategories[2].name, "Appearance", "second subcategory is Appearance")
+equal(Stub.subcategories[3].name, "Elements", "third subcategory is Elements")
+
+SlashCmdList["PERCH"]("config appearance")
+equal(Stub.openedCategory, "Appearance", "config <page> opens that subcategory")
+SlashCmdList["PERCH"]("config nonsense")
+equal(Stub.openedCategory, "Perch", "an unknown page opens the main category")
+
+local function findCheckbox(text)
+  for _, widget in ipairs(P.optionWidgets) do
+    if widget.label and widget.label.GetText and tostring(widget.label:GetText()):find(text, 1, true)
+      and widget.SetChecked then
+      return widget
+    end
+  end
+end
+
+local toggles = {
+  { "Lock the bar", "locked" },
+  { "Enable icons", "showIcons" },
+  { "Hide bar when empty", "hideWhenEmpty" },
+  { "Fade until mouseover", "mouseoverFade" },
+  { "Hide in combat", "hideInCombat" },
+  { "Click-through", "clickThrough" },
+}
+for _, toggle in ipairs(toggles) do
+  local widget = findCheckbox(toggle[1])
+  check(widget ~= nil, "general page has the '" .. toggle[1] .. "' toggle")
+  if widget then
+    local before = PerchDB.bar[toggle[2]]
+    widget:SetChecked(not before)
+    widget.scripts.OnClick(widget)
+    equal(PerchDB.bar[toggle[2]], not before, toggle[1] .. " toggle writes the setting")
+    widget:SetChecked(before)
+    widget.scripts.OnClick(widget)
+  end
+end
+
+check(P.GetLSM() ~= nil, "LibSharedMedia is embedded and loads")
+local fontNames = {}
+for _, entry in ipairs(P:MediaList("font")) do
+  fontNames[entry.name] = entry.path
+end
+equal(fontNames["Friz Quadrata TT"], "Fonts\\FRIZQT__.TTF", "font list includes the default font")
+equal(fontNames["Arial Narrow"], "Fonts\\ARIALN.TTF", "font list includes Arial Narrow")
+
+local fontDropdown
+for _, widget in ipairs(P.optionWidgets) do
+  if widget.button and widget.label and widget.label:GetText() == "Font" then
+    fontDropdown = widget
+  end
+end
+check(fontDropdown ~= nil, "general page has a font selector")
+equal(fontDropdown.button.text, "Friz Quadrata TT", "font selector shows the current font by name")
+fontDropdown.button.scripts.OnClick(fontDropdown.button)
+local picker = P.UI.GetPicker()
+check(picker ~= nil and picker.frame:IsShown(), "clicking the font selector opens the picker")
+local arialRow
+for _, row in ipairs(picker.rows) do
+  if row:IsShown() and row.item.label == "Arial Narrow" then
+    arialRow = row
+  end
+end
+check(arialRow ~= nil, "picker lists Arial Narrow")
+arialRow.scripts.OnClick(arialRow)
+equal(PerchDB.bar.font.name, "Fonts\\ARIALN.TTF", "picking a font stores its path")
+check(not picker.frame:IsShown(), "picking a font closes the picker")
+equal(fontDropdown.button.text, "Arial Narrow", "font selector shows the new choice")
+equal(P.brokerElements["Perch_Clock"].text.fontPath, "Fonts\\ARIALN.TTF", "cells use the chosen font")
+
+PerchDB.bar.font.name = "Fonts\\Missing.ttf"
+P:ApplyAll()
+equal(P.brokerElements["Perch_Clock"].text.fontPath, P.DEFAULT_FONT,
+  "an unresolvable font falls back to the default instead of leaving cells fontless")
+PerchDB.bar.font.name = "Fonts\\FRIZQT__.TTF"
+P:ApplyAll()
+
+-- Without the subcategory API every page sits behind tabs in one canvas.
+local realSubcategory = Settings.RegisterCanvasLayoutSubcategory
+Settings.RegisterCanvasLayoutSubcategory = nil
+P.optionsRegistered = false
+P:RegisterOptions()
+check(P.optionsSubcategories == nil, "no subcategories without the API")
+check(P.optionsCanvas.Select ~= nil, "fallback canvas has tabs")
+SlashCmdList["PERCH"]("config elements")
+check(P.optionsCanvas.contents[4]:IsShown() and not P.optionsCanvas.contents[1]:IsShown(),
+  "config <page> selects the tab in the fallback")
+Settings.RegisterCanvasLayoutSubcategory = realSubcategory
+
+--------------------------------------------------------------------------
 -- Barrier
 --------------------------------------------------------------------------
 

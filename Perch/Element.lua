@@ -13,7 +13,12 @@ function P:ApplyCellFont(cell)
   local font = self.db.bar.font
   local signature = fontSignature(font)
   if cell.fontSignature ~= signature then
-    cell.text:SetFont(font.name, font.size, font.outline or "")
+    -- A font path that does not resolve leaves the string without a font, and
+    -- the next SetText would raise. Fall back to the default in that case.
+    local ok, applied = pcall(cell.text.SetFont, cell.text, font.name, font.size, font.outline or "")
+    if not (ok and applied) then
+      cell.text:SetFont(P.DEFAULT_FONT, font.size, font.outline or "")
+    end
     cell.fontSignature = signature
   end
 end
