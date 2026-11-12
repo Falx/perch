@@ -216,7 +216,8 @@ without slash commands.
       drag and `/perch frame` work
 - [x] Secure command cells on `UIParent` (fixes combat `SetWidth` block)
 - [x] Options widgets initialise on creation; disabled cells stay hidden
-- [ ] Verify a command cell fires its macro in the client
+- [x] Verified in the client: command click fires, options show saved values,
+      no `ADDON_ACTION_BLOCKED` in combat
 
 ### Phase 2 — configuration depth
 - [x] Element visibility list: every LDB object, launchers opt-in
