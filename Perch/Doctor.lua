@@ -142,6 +142,9 @@ function P:Doctor()
   add("  CreateSlider: %s", probeTable("Settings", "CreateSlider"))
   add("  CreateSliderOptions: %s", probeTable("Settings", "CreateSliderOptions"))
   add("  RegisterCanvasLayoutSubcategory: %s", probeTable("Settings", "RegisterCanvasLayoutSubcategory"))
+  add("  ColorPickerFrame: %s", (type(ColorPickerFrame) == "table")
+    and (ColorPickerFrame.SetupColorPickerAndShow and "SetupColorPickerAndShow" or "classic (func/SetColorRGB)")
+    or "MISSING")
   do
     local registered = 0
     for _ in pairs(self.optionsSubcategories or {}) do

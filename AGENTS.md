@@ -28,7 +28,7 @@ so new files must be added to the TOC in load order.
 ## Load order (Perch.toc)
 
 ```
-Core -> Bar -> Element -> Command -> Broker -> Minimap -> Format -> Builtins -> Media -> Doctor
+Core -> Bar -> Decor -> Element -> Command -> Broker -> Minimap -> Format -> Builtins -> Media -> Doctor
      -> Config -> ConfigGeneral -> ConfigAppearance -> ConfigElements
 ```
 

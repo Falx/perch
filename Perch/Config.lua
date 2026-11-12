@@ -432,12 +432,120 @@ function UI.dropdown(parent, text, x, y, width, getItems, getter, setter)
     button:SetText(shown)
   end
 
+  -- Greyed out and unclickable, e.g. while another setting makes it moot.
+  widget.setEnabled = function(enabled)
+    button:SetEnabled(enabled and true or false)
+    widget.label:SetAlpha(enabled and 1 or 0.5)
+  end
+
   button:SetScript("OnClick", function()
     UI.ShowPicker(button, getItems(), getter(), function(value)
       setter(value)
       widget.refresh()
     end)
   end)
+
+  return widget
+end
+
+--
+-- Colour: a swatch that opens the game's colour picker, plus a hex box that works
+-- even where the picker API differs.
+--
+
+local function hexOf(r, g, b)
+  return string.format("%02x%02x%02x", math.floor((r or 0) * 255 + 0.5), math.floor((g or 0) * 255 + 0.5),
+    math.floor((b or 0) * 255 + 0.5))
+end
+
+local function openColorPicker(r, g, b, onChange)
+  local picker = ColorPickerFrame
+  if not picker then
+    return false
+  end
+  return (pcall(function()
+    if picker.SetupColorPickerAndShow then
+      picker:SetupColorPickerAndShow({
+        r = r,
+        g = g,
+        b = b,
+        hasOpacity = false,
+        swatchFunc = function()
+          onChange(picker:GetColorRGB())
+        end,
+        cancelFunc = function(previous)
+          onChange(previous.r, previous.g, previous.b)
+        end,
+      })
+    else
+      picker.func = function()
+        onChange(picker:GetColorRGB())
+      end
+      picker.cancelFunc = function(previous)
+        onChange(previous.r, previous.g, previous.b)
+      end
+      picker.hasOpacity = false
+      picker.previousValues = { r = r, g = g, b = b }
+      picker:SetColorRGB(r, g, b)
+      picker:Hide()
+      picker:Show()
+    end
+  end))
+end
+
+-- getter() -> r, g, b (0..1); setter(r, g, b).
+function UI.color(parent, text, x, y, getter, setter)
+  local widget = {}
+
+  widget.label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  widget.label:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+  widget.label:SetText(text)
+
+  local swatch = CreateFrame("Button", nil, parent)
+  swatch:SetSize(22, 22)
+  swatch:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y - 20)
+  swatch.frame = swatch:CreateTexture(nil, "BACKGROUND")
+  swatch.frame:SetAllPoints(swatch)
+  swatch.frame:SetColorTexture(0.8, 0.8, 0.8, 1)
+  swatch.fill = swatch:CreateTexture(nil, "ARTWORK")
+  swatch.fill:SetPoint("TOPLEFT", swatch, "TOPLEFT", 2, -2)
+  swatch.fill:SetPoint("BOTTOMRIGHT", swatch, "BOTTOMRIGHT", -2, 2)
+  widget.swatch = swatch
+
+  local function apply(r, g, b)
+    setter(r, g, b)
+    widget.refresh()
+  end
+
+  local hex = UI.editbox(parent, x + 34, y - 20, 70, function()
+    return hexOf(getter())
+  end, function(typed)
+    local value = typed:gsub("^#", "")
+    if #value == 6 and value:match("^%x+$") then
+      local r = tonumber(value:sub(1, 2), 16) / 255
+      local g = tonumber(value:sub(3, 4), 16) / 255
+      local b = tonumber(value:sub(5, 6), 16) / 255
+      setter(r, g, b)
+    end
+    widget.refresh()
+  end, {
+    maxLetters = 7,
+    filter = function(text)
+      return (text:gsub("[^#%x]", ""))
+    end,
+  })
+  widget.hex = hex
+
+  swatch:SetScript("OnClick", function()
+    local r, g, b = getter()
+    openColorPicker(r, g, b, apply)
+  end)
+
+  widget.refresh = function()
+    local r, g, b = getter()
+    swatch.fill:SetColorTexture(r, g, b, 1)
+    hex.refresh()
+  end
 
   return widget
 end
@@ -480,7 +588,19 @@ function P:CreatePage(page, parent)
   end
 
   UI.label(content, page.title, 16, -12, "GameFontNormalLarge")
-  page.build(content, track)
+
+  -- Tall pages scroll: the controls go into a scroll child instead.
+  local host = content
+  if page.scrollHeight then
+    local scroll = CreateFrame("ScrollFrame", nil, content, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -40)
+    scroll:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", -28, 4)
+    host = CreateFrame("Frame", nil, scroll)
+    host:SetSize(PAGE_WIDTH - 32, page.scrollHeight)
+    scroll:SetScrollChild(host)
+    content.scroll = scroll
+  end
+  page.build(host, track)
 
   content:SetScript("OnShow", function()
     P:RefreshOptions()
@@ -762,6 +882,7 @@ P:RegisterPage({
     UI.button(content, "Reset position", 16, -110, function()
       local db = P.db.bar
       db.point, db.relativePoint, db.x, db.y = "TOP", "TOP", 0, -8
+      db.alignment = "TOP"
       P:RestorePosition()
       P:RequestLayout()
     end)

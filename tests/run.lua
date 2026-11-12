@@ -1367,6 +1367,226 @@ check(table.concat(Stub.messages, "\n"):find("minimap buttons: 8 found", 1, true
 P.selectedElement = goldKey
 P:RefreshOptions()
 
+-- Appearance: alignment, colours, border and end caps.
+section("appearance")
+
+local function bg() return PerchDB.bar.background end
+
+-- Alignment.
+equal(PerchDB.bar.alignment, "TOP", "the default alignment is top centre")
+check(P:SetAlignment("TOPLEFT"), "the bar can align top left")
+local p1, _, rp1, x1, y1 = P.bar:GetPoint()
+equal(p1, "TOPLEFT", "top left anchors the top left corner")
+equal(rp1, "TOPLEFT", "to the top left of the screen")
+equal(x1, 8, "with a small margin")
+local yBefore = y1
+check(P:SetAlignment("TOPRIGHT"), "the bar can align top right")
+local p2, _, _, x2, y2 = P.bar:GetPoint()
+equal(p2, "TOPRIGHT", "top right anchors the top right corner")
+equal(x2, -8, "with the margin on the other side")
+equal(y2, yBefore, "the vertical offset is kept")
+check(P:SetAlignment("TOP"), "the bar can align top centre")
+local p3, _, _, x3 = P.bar:GetPoint()
+equal(p3, "TOP", "top centre anchors the top")
+equal(x3, 0, "without a margin")
+check(not P:SetAlignment("sideways"), "an unknown alignment is refused")
+P:SavePosition()
+equal(PerchDB.bar.alignment, "custom", "dragging the bar makes the alignment custom")
+
+local alignment = findDropdown("Alignment")
+check(alignment ~= nil, "appearance has an alignment selector")
+equal(alignment.button.text, "Custom (dragged)", "the selector shows a dragged bar as custom")
+check(pickItem(alignment, "TOPRIGHT"), "a preset can be picked")
+equal(PerchDB.bar.point, "TOPRIGHT", "picking a preset moves the bar")
+equal(alignment.button.text, "Top right", "and the selector shows it")
+check(pickItem(alignment, "custom"), "custom can be clicked")
+equal(PerchDB.bar.alignment, "TOPRIGHT", "but it changes nothing")
+local resetPosition = findButton("Reset position")
+resetPosition.scripts.OnClick(resetPosition)
+equal(PerchDB.bar.alignment, "TOP", "Reset position goes back to top centre")
+
+-- Bars saved before alignment existed.
+PerchDB.bar.alignment = nil
+PerchDB.bar.x = -16
+P:EnsureDB()
+equal(PerchDB.bar.alignment, "custom", "an old bar that was dragged becomes custom")
+PerchDB.bar.alignment = nil
+PerchDB.bar.x = 0
+P:EnsureDB()
+equal(PerchDB.bar.alignment, "TOP", "an old bar at the default spot is top centre")
+
+-- Border.
+PerchDB.bar.border.enabled = true
+PerchDB.bar.border.size = 2
+PerchDB.bar.border.color = { 1, 0, 0, 0.5 }
+P:ApplyAll()
+local decor = P.decor
+check(decor.top:IsShown() and decor.bottom:IsShown(), "the border lines show")
+equal(decor.top.height, 2, "the border has the chosen thickness")
+equal(decor.top.colorTexture[1], 1, "the border has the chosen colour")
+equal(decor.top.colorTexture[4], 0.5, "and alpha")
+check(decor.left:IsShown() and decor.right:IsShown(), "a flat end has its side line")
+local bgPoint = P.bar.bg.points[1]
+equal(bgPoint[4], 2, "the background is inset by the border on the left")
+equal(bgPoint[5], -2, "and the top")
+PerchDB.bar.border.enabled = false
+P:ApplyAll()
+check(not decor.top:IsShown() and not decor.left:IsShown(), "no border lines when it is off")
+equal(P.bar.bg.points[1][4], 0, "and the background fills the bar")
+
+-- End caps.
+local function rowsOf(side)
+  return P.decor.rows[side]
+end
+local function widthOfRow(side, row)
+  local rows = rowsOf(side)
+  local fill, border = rows.fills[row], rows.borders[row]
+  local total = 0
+  if fill and fill:IsShown() then
+    total = total + fill.width
+  end
+  if border and border:IsShown() then
+    total = total + border.width
+  end
+  return total
+end
+
+PerchDB.bar.caps.width = 10
+PerchDB.bar.caps.left = "triangle"
+PerchDB.bar.caps.right = "curved"
+P:ApplyAll()
+local widest = 0
+for row = 1, 22 do
+  widest = math.max(widest, widthOfRow("left", row))
+end
+check(widest >= 9 and widest <= 10, "a triangle cap reaches the chosen width at its middle")
+check(widthOfRow("left", 1) <= 1, "and is thin at the top")
+for row = 1, 22 do
+  equal(widthOfRow("left", row), widthOfRow("left", 23 - row), "the triangle is symmetric (row " .. row .. ")")
+end
+local curvedMid = widthOfRow("right", 11)
+local triangleQuarter = widthOfRow("left", 6)
+check(widthOfRow("right", 6) > triangleQuarter, "a curved cap is rounder than a triangle")
+check(curvedMid >= 9, "a curved cap also reaches its width in the middle")
+
+local leftFill = rowsOf("left").fills[11]
+local leftPoint = leftFill.points[1]
+equal(leftPoint[1], "TOPRIGHT", "a left cap grows out of the bar's left edge")
+equal(leftPoint[3], "TOPLEFT", "anchored to the bar's top left corner")
+equal(leftPoint[5], -10, "one row per pixel of height")
+local rightPoint = rowsOf("right").fills[11].points[1]
+equal(rightPoint[1], "TOPLEFT", "a right cap grows out of the right edge")
+equal(rightPoint[3], "TOPRIGHT", "anchored to the top right corner")
+equal(leftFill.colorTexture[4], 0.5, "cap rows use the background's alpha")
+equal(leftFill.colorTexture[1], bg().color[1], "and its colour")
+check(not P.decor.left:IsShown() and not P.decor.right:IsShown(), "a capped end has no straight border line")
+
+PerchDB.bar.caps.left = "slant"
+PerchDB.bar.caps.right = "slant"
+P:ApplyAll()
+check(widthOfRow("left", 3) < widthOfRow("left", 20), "a left slant widens towards the bottom")
+check(widthOfRow("right", 3) > widthOfRow("right", 20), "a right slant widens towards the top")
+
+-- A border on a cap follows its edge without overlapping the fill.
+PerchDB.bar.border.enabled = true
+PerchDB.bar.border.size = 1
+PerchDB.bar.border.color = { 0, 1, 0, 1 }
+PerchDB.bar.caps.left = "triangle"
+P:ApplyAll()
+for row = 1, 22 do
+  equal(widthOfRow("left", row), widthOfRow("left", 23 - row), "the capped border keeps the cap's shape (row " .. row .. ")")
+end
+local capBorder = rowsOf("left").borders[11]
+check(capBorder:IsShown() and capBorder.width >= 1, "the cap has a border part")
+equal(capBorder.colorTexture[2], 1, "in the border colour")
+equal(rowsOf("left").fills[11].colorTexture[2], 0, "next to a fill in the background colour")
+local fillPoint, borderPoint = rowsOf("left").fills[11].points[1], capBorder.points[1]
+equal(borderPoint[4], -rowsOf("left").fills[11].width, "the border part starts where the fill ends")
+equal(fillPoint[4], 0, "and the fill starts at the bar")
+PerchDB.bar.border.enabled = false
+
+-- A textured background cannot be matched by the caps.
+PerchDB.bar.caps.left = "triangle"
+PerchDB.bar.caps.right = "triangle"
+P:ApplyAll()
+check(P:IsSolidBackground(), "the default background is solid")
+check(widthOfRow("left", 11) > 0, "caps show on a solid background")
+local leftEnd = findDropdown("Left end")
+check(leftEnd.button:IsEnabled(), "the cap selector is enabled on a solid background")
+bg().texture = "Interface\\Buttons\\SomeTexture"
+P:ApplyAll()
+P:RefreshOptions()
+check(not P:IsSolidBackground(), "a textured background is not solid")
+equal(widthOfRow("left", 11), 0, "a textured background switches the caps off")
+check(not leftEnd.button:IsEnabled(), "and disables the cap selector")
+equal(PerchDB.bar.caps.left, "triangle", "while keeping the choice")
+bg().texture = "Interface\\ChatFrame\\ChatFrameBackground"
+P:ApplyAll()
+P:RefreshOptions()
+check(widthOfRow("left", 11) > 0, "the caps come back with a solid background")
+check(leftEnd.button:IsEnabled(), "and the selector is enabled again")
+bg().enabled = false
+P:ApplyAll()
+equal(widthOfRow("left", 11), 0, "no background means no caps")
+bg().enabled = true
+PerchDB.bar.caps.width = 20
+P:ApplyAll()
+local wide = 0
+for row = 1, 22 do
+  wide = math.max(wide, widthOfRow("left", row))
+end
+check(wide >= 19, "the cap width setting widens the cap")
+PerchDB.bar.caps.left, PerchDB.bar.caps.right, PerchDB.bar.caps.width = "none", "none", 10
+P:ApplyAll()
+equal(widthOfRow("left", 11), 0, "flat ends draw no cap")
+check(P.decor.rows.left.fills[11] == nil or not P.decor.rows.left.fills[11]:IsShown(), "and no row textures show")
+
+-- Colours: hex input and the game's picker.
+local colorWidgets = {}
+for _, widget in ipairs(P.optionWidgets) do
+  if widget.hex and widget.swatch then
+    colorWidgets[#colorWidgets + 1] = widget
+  end
+end
+check(#colorWidgets >= 2, "appearance has background and border colour pickers")
+local bgColor = colorWidgets[1]
+equal(bgColor.hex.box:GetText(), "000000", "the hex box shows the current colour")
+bgColor.hex.box:SetText("ff8000")
+bgColor.hex.box.scripts.OnEnterPressed(bgColor.hex.box)
+equal(bg().color[1], 1, "a typed hex colour sets red")
+check(math.abs(bg().color[2] - 128 / 255) < 0.001, "green")
+equal(bg().color[3], 0, "and blue")
+equal(bg().color[4], 0.5, "while the alpha is kept")
+equal(bgColor.hex.box:GetText(), "ff8000", "the box shows the new colour")
+check(math.abs(P.bar.bg.vertexColor[2] - 128 / 255) < 0.001, "the bar background uses it straight away")
+bgColor.hex.box:SetText("zz")
+bgColor.hex.box.scripts.OnTextChanged(bgColor.hex.box, true)
+equal(bgColor.hex.box:GetText(), "", "non-hex characters are stripped")
+bgColor.hex.box:SetText("12")
+bgColor.hex.box.scripts.OnEnterPressed(bgColor.hex.box)
+equal(bg().color[1], 1, "an incomplete hex value is ignored")
+equal(bgColor.hex.box:GetText(), "ff8000", "and the box reverts")
+
+bgColor.swatch.scripts.OnClick(bgColor.swatch)
+check(Stub.colorPicker ~= nil, "the swatch opens the game's colour picker")
+equal(Stub.colorPicker.r, 1, "starting from the current colour")
+Stub.colorPicker.swatchFunc()
+equal(bg().color[2], 1, "picking a colour applies it")
+equal(bg().color[1], 0, "(the picker's green)")
+Stub.colorPicker.cancelFunc({ r = 0, g = 0, b = 0 })
+equal(bg().color[2], 0, "cancelling restores the previous colour")
+equal(bg().color[4], 0.5, "the alpha is untouched throughout")
+
+local borderColor = colorWidgets[2]
+borderColor.hex.box:SetText("00ff00")
+borderColor.hex.box.scripts.OnEnterPressed(borderColor.hex.box)
+equal(PerchDB.bar.border.color[2], 1, "the border colour has its own picker")
+PerchDB.bar.border.color = { 0, 0, 0, 1 }
+P:ApplyAll()
+P:RefreshOptions()
+
+check(Stub.subcategories[2].frame.scroll ~= nil, "the appearance page scrolls")
+
 -- Without the subcategory API every page sits behind tabs in one canvas.
 local realSubcategory = Settings.RegisterCanvasLayoutSubcategory
 Settings.RegisterCanvasLayoutSubcategory = nil

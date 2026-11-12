@@ -15,6 +15,7 @@ Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.lua
 
 Core.lua
 Bar.lua
+Decor.lua
 Element.lua
 Command.lua
 Broker.lua

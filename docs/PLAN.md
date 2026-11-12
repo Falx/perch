@@ -62,6 +62,7 @@ Perch/                      shipped addon
   Config.lua                Options framework (widgets, picker, pages, Settings registration)
   ConfigGeneral/Appearance/Elements.lua   one options page each
   Media.lua                 LibSharedMedia wrapper with built-in fallback
+  Decor.lua                 border and drawn end caps
   Format.lua                #code template engine, gold and XP formats
   Libs/                     LibStub, CallbackHandler-1.0, LibDataBroker-1.1
 tests/                      headless harness (not shipped)
@@ -201,7 +202,7 @@ without slash commands.
 - [x] Vendored LibStub, CallbackHandler-1.0, LibDataBroker-1.1
 - [x] `Perch.toc` with `## Interface: 16001`
 - [x] `tools/package.sh`
-- [x] `luajit` harness with 492 assertions
+- [x] `luajit` harness with 646 assertions
 - [x] `/perch doctor`
 
 ### Phase 1 — usable bar — DONE (pending in-game verification)
@@ -227,7 +228,7 @@ Settings redesign, in four steps (each ends with gates, a commit and an in-game 
 - [x] 1. Subpages framework, General (six toggles + font selector), LSM embedded
 - [x] 2. Elements page: list + detail panel (show/icon/label/value/custom label), order buttons
 - [x] 3. Command add/edit/remove (label + macro; icon selector deferred)
-- [ ] 4. Appearance: alignment (top left/center/right), colours, texture, solid
+- [x] 4. Appearance: alignment (top left/center/right), colours, texture, solid
       border, drawn end caps (disabled with a textured background)
 - [x] Element visibility list: every LDB object, launchers opt-in
 - [ ] Element ordering UI (up/down or drag)

@@ -84,6 +84,31 @@ function P:ApplyBarStyle()
   if color then
     bar.bg:SetVertexColor(color[1] or 0, color[2] or 0, color[3] or 0, color[4] or 0.5)
   end
+  if self.ApplyDecor then
+    self:ApplyDecor()
+  end
+end
+
+-- Where the bar sits on screen. Dragging it makes the position "custom".
+local ALIGNMENTS = {
+  TOPLEFT = 8,
+  TOP = 0,
+  TOPRIGHT = -8,
+}
+
+function P:SetAlignment(id)
+  local margin = ALIGNMENTS[id]
+  if margin == nil or not self.bar then
+    return false
+  end
+  local db = self.db.bar
+  db.alignment = id
+  db.point = id
+  db.relativePoint = id
+  db.x = margin
+  self:RestorePosition()
+  self:RequestLayout()
+  return true
 end
 
 function P:SavePosition()
@@ -96,6 +121,11 @@ function P:SavePosition()
   db.relativePoint = relativePoint
   db.x = x
   db.y = y
+  db.alignment = "custom"
+  -- The alignment selector shows "custom" if the options are open.
+  if self.RefreshOptions then
+    self:RefreshOptions()
+  end
 end
 
 function P:RestorePosition()

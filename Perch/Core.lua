@@ -45,6 +45,17 @@ local defaults = {
     },
     iconSize = 14,
     showIcons = true,
+    alignment = "TOP",
+    border = {
+      enabled = false,
+      size = 1,
+      color = { 0, 0, 0, 1 },
+    },
+    caps = {
+      left = "none",
+      right = "none",
+      width = 10,
+    },
   },
   elements = {},
   order = {},
@@ -102,7 +113,16 @@ function P:EnsureDB()
   if type(PerchDB) ~= "table" then
     PerchDB = {}
   end
+  -- Positions saved before alignment existed: a bar that is not at the default
+  -- top-centre spot was dragged there, so it counts as custom.
+  local hadAlignment = type(PerchDB.bar) == "table" and PerchDB.bar.alignment ~= nil
   mergeDefaults(PerchDB, defaults)
+  if not hadAlignment then
+    local bar = PerchDB.bar
+    if bar.point ~= "TOP" or bar.relativePoint ~= "TOP" or (bar.x or 0) ~= 0 then
+      bar.alignment = "custom"
+    end
+  end
   if type(PerchDB.bar) ~= "table" then
     PerchDB.bar = {}
     mergeDefaults(PerchDB.bar, defaults.bar)

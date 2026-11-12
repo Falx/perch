@@ -328,7 +328,9 @@ local function newFrame(kind, name, parent)
     return self.atlas
   end
 
-  function frame:SetColorTexture() end
+  function frame:SetColorTexture(r, g, b, a)
+    self.colorTexture = { r, g, b, a }
+  end
 
   function frame:SetVertexColor(r, g, b, a)
     self.vertexColor = { r, g, b, a }
@@ -677,6 +679,18 @@ UIParent.width = 1920
 UIParent.height = 1080
 
 Minimap = newFrame("Frame", "Minimap", UIParent)
+
+-- The game's colour picker: records what it was opened with.
+ColorPickerFrame = newFrame("Frame", "ColorPickerFrame", UIParent)
+Stub.pickerColor = { 0, 1, 0 }
+
+function ColorPickerFrame:SetupColorPickerAndShow(info)
+  Stub.colorPicker = info
+end
+
+function ColorPickerFrame:GetColorRGB()
+  return Stub.pickerColor[1], Stub.pickerColor[2], Stub.pickerColor[3]
+end
 
 local function fontObject()
   local fontString = newFrame("fontstring", nil, nil)

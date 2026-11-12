@@ -131,7 +131,10 @@ the FPS source now prefers `GetFPS` and falls back to `GetFramerate`.
 - `/perch doctor` now reports each command cell: shown/hidden, parent, click
   count (`PostClick`), and the macrotext/type it actually carries.
 
-### Minimap buttons (to verify in the client)
+### Minimap buttons (verified in the client)
+
+- Verified: discovery, icon styles, click forwarding, hover tooltips (FishFry's
+  own hover panel, Polestar's menu) all end up on the bar.
 
 - Discovery walks the children of `Minimap` (and `MinimapBackdrop`,
   `MinimapCluster` if present): named `Button`/`CheckButton` frames up to 60px

@@ -9,6 +9,20 @@ First working build.
 
 ### Added
 
+- **Appearance page, complete.** It scrolls and is split into sections:
+  - Position: alignment (top left / top centre / top right, or "custom" once the
+    bar has been dragged) and the font.
+  - Background: texture (LibSharedMedia), show/hide, colour (swatch with the
+    game's colour picker plus a hex box) and alpha.
+  - Border: on/off, colour, alpha, thickness. Drawn from plain colour textures
+    and never overlapping the background.
+  - End caps: left and right as Flat, Triangle, Curved or Slant, with a width.
+    Caps are drawn row by row in the bar's own colour and alpha, with the border
+    following their edge. They switch off (and their selectors grey out) when the
+    background is a texture, and come back with a solid one.
+  - Size and text sliders as before.
+- Bars saved before alignment existed keep their place: a dragged bar reads as
+  "custom".
 - **Minimap button icon styles.** Each minimap element can choose how its picture
   is copied: Automatic, First texture, Top texture, Largest texture, Button
   texture, or All layers (every texture the button is made of, stacked), plus a
