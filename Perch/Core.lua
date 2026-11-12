@@ -197,6 +197,12 @@ function P:ElementOption(key, field)
   if field == "label" then
     return nil
   end
+  if field == "iconSource" then
+    return "auto"
+  end
+  if field == "iconCrop" then
+    return "source"
+  end
   if field == "showLabel" then
     local cell = self:GetCell(key)
     return (cell and cell.isCommand) and true or false

@@ -29,6 +29,23 @@ local LIBDBICON_PREFIX = "LibDBIcon10_"
 -- Texture parts that are decoration, not the picture on the button.
 local DECORATION = { "border", "highlight", "background", "overlay", "shadow", "ring", "glow", "mask", "pushed" }
 
+-- How a button's picture is extracted. Buttons are built in many ways, so each
+-- element can pick the style that looks right.
+P.MINIMAP_ICON_SOURCES = {
+  { id = "auto", label = "Automatic" },
+  { id = "first", label = "First texture" },
+  { id = "last", label = "Top texture" },
+  { id = "largest", label = "Largest texture" },
+  { id = "normal", label = "Button texture" },
+  { id = "layers", label = "All layers" },
+}
+
+P.MINIMAP_ICON_CROPS = {
+  { id = "source", label = "Original crop" },
+  { id = "full", label = "Whole texture" },
+  { id = "trimmed", label = "Trimmed edges" },
+}
+
 local function startsWith(text, prefix)
   return text:sub(1, #prefix) == prefix
 end
@@ -96,7 +113,7 @@ local function isDecoration(region)
 end
 
 local function hasPicture(texture)
-  if not texture or not texture.GetTexture then
+  if type(texture) ~= "table" or not texture.GetTexture then
     return false
   end
   if texture.GetAtlas and texture:GetAtlas() then
@@ -105,9 +122,33 @@ local function hasPicture(texture)
   return texture:GetTexture() ~= nil
 end
 
--- The texture that is the button's picture: a named field, the conventional
--- <name>Icon region, or the first texture that is not a border or highlight.
-local function findIcon(button)
+--
+-- Picking the picture
+--
+
+-- Every texture that is part of the picture, in draw order.
+local function pictureRegions(button)
+  local list = {}
+  if button.GetRegions then
+    for _, region in ipairs({ button:GetRegions() }) do
+      if region.IsObjectType and region:IsObjectType("Texture") and not isDecoration(region) and hasPicture(region) then
+        list[#list + 1] = region
+      end
+    end
+  end
+  return list
+end
+
+local function normalTexture(button)
+  local texture = button.GetNormalTexture and button:GetNormalTexture()
+  if hasPicture(texture) then
+    return texture
+  end
+end
+
+-- A named field, the conventional <name>Icon region, the button texture, or the
+-- first texture that is not a border or highlight.
+local function automatic(button)
   local name = button:GetName()
   local named = {
     button.icon,
@@ -118,18 +159,123 @@ local function findIcon(button)
     name and _G[name .. "Texture"],
   }
   for _, candidate in ipairs(named) do
-    if type(candidate) == "table" and hasPicture(candidate) then
+    if hasPicture(candidate) then
       return candidate
     end
   end
-  if button.GetRegions then
-    for _, region in ipairs({ button:GetRegions() }) do
-      if region.IsObjectType and region:IsObjectType("Texture") and not isDecoration(region) and hasPicture(region) then
-        return region
+  return normalTexture(button) or pictureRegions(button)[1]
+end
+
+local function area(region)
+  return (region:GetWidth() or 0) * (region:GetHeight() or 0)
+end
+
+-- The textures to copy, as a list: one for most styles, all of them for layers.
+local function pickSources(button, mode)
+  if mode == "layers" then
+    local list = pictureRegions(button)
+    local normal = normalTexture(button)
+    if normal then
+      local present = false
+      for _, region in ipairs(list) do
+        if region == normal then
+          present = true
+        end
+      end
+      if not present then
+        table.insert(list, 1, normal)
       end
     end
+    if #list > 0 then
+      return list
+    end
+  elseif mode == "normal" then
+    local normal = normalTexture(button)
+    if normal then
+      return { normal }
+    end
+  elseif mode == "first" or mode == "last" or mode == "largest" then
+    local list = pictureRegions(button)
+    if #list > 0 then
+      if mode == "first" then
+        return { list[1] }
+      elseif mode == "last" then
+        return { list[#list] }
+      end
+      local largest = list[1]
+      for _, region in ipairs(list) do
+        if area(region) > area(largest) then
+          largest = region
+        end
+      end
+      return { largest }
+    end
   end
-  return nil
+  -- Automatic, and the fallback when the chosen style finds nothing.
+  local picked = automatic(button)
+  return picked and { picked } or {}
+end
+
+-- Everything needed to draw a copy of a texture.
+local function readTexture(region)
+  local data = {
+    atlas = region.GetAtlas and region:GetAtlas() or nil,
+    texture = region:GetTexture(),
+    r = 1,
+    g = 1,
+    b = 1,
+    a = 1,
+    desaturated = false,
+  }
+  if not data.atlas and region.GetTexCoord then
+    local ok, coords = pcall(function()
+      return { region:GetTexCoord() }
+    end)
+    if ok and #coords >= 4 then
+      data.coords = coords
+    end
+  end
+  if region.GetVertexColor then
+    local r, g, b, a = region:GetVertexColor()
+    data.r, data.g, data.b, data.a = r or 1, g or 1, b or 1, a or 1
+  end
+  if region.IsDesaturated then
+    data.desaturated = region:IsDesaturated() and true or false
+  end
+  return data
+end
+
+local function signature(data)
+  local coords = {}
+  for _, value in ipairs(data.coords or {}) do
+    coords[#coords + 1] = string.format("%.3f", value)
+  end
+  return table.concat({
+    tostring(data.atlas),
+    tostring(data.texture),
+    table.concat(coords, ","),
+    string.format("%.2f,%.2f,%.2f,%.2f", data.r, data.g, data.b, data.a),
+    tostring(data.desaturated),
+  }, "|")
+end
+
+local function drawTexture(texture, data, crop)
+  if data.atlas then
+    texture:SetAtlas(data.atlas)
+  else
+    texture:SetTexture(data.texture)
+    if crop == "full" or (crop == "source" and not data.coords) then
+      texture:SetTexCoord(0, 1, 0, 1)
+    elseif crop == "trimmed" then
+      texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    else
+      pcall(texture.SetTexCoord, texture, unpack(data.coords))
+    end
+  end
+  texture:SetVertexColor(data.r, data.g, data.b, data.a)
+  if texture.SetDesaturated then
+    texture:SetDesaturated(data.desaturated)
+  end
 end
 
 function P:MinimapLabel(cell)
@@ -168,6 +314,53 @@ local function withTooltipOnCell(button, cell, fn, ...)
   return ok, err
 end
 
+-- Addons with their own hover panels (not GameTooltip) place them next to the
+-- button by reading its screen rectangle. While the mouse is over the bar cell
+-- the button reports the cell's geometry instead, so those panels appear at the
+-- bar. It is given back on leave or when the cell hides.
+local BORROWED = {
+  "GetLeft",
+  "GetRight",
+  "GetTop",
+  "GetBottom",
+  "GetCenter",
+  "GetRect",
+  "GetWidth",
+  "GetHeight",
+  "GetSize",
+  "GetEffectiveScale",
+}
+
+local function lendGeometry(cell)
+  local button = cell.sourceButton
+  if not button or cell.lentGeometry then
+    return
+  end
+  local saved = {}
+  for _, name in ipairs(BORROWED) do
+    saved[name] = rawget(button, name) or false
+    local method = cell[name]
+    if type(method) == "function" then
+      button[name] = function(_, ...)
+        return method(cell, ...)
+      end
+    end
+  end
+  cell.lentGeometry = saved
+end
+
+local function returnGeometry(cell)
+  local saved = cell.lentGeometry
+  if not saved then
+    return
+  end
+  local button = cell.sourceButton
+  for name, original in pairs(saved) do
+    button[name] = original or nil
+  end
+  cell.lentGeometry = nil
+end
+
 function P:ForwardMinimapScript(cell, scriptName, ...)
   local button = cell.sourceButton
   if not button or not hasScript(button, scriptName) then
@@ -198,6 +391,8 @@ function P:CreateMinimapCell(name, button)
   cell.minimapName = name
   cell.minimapKey = "mm:" .. name
   cell.sourceButton = button
+  cell.layers = {}
+  cell.layerSpecs = {}
 
   cell:SetScript("OnMouseDown", function(frame, mouseButton)
     P:ForwardMinimapScript(frame, "OnMouseDown", mouseButton)
@@ -215,6 +410,7 @@ function P:CreateMinimapCell(name, button)
     P:ForwardMinimapScript(frame, "OnMouseWheel", delta)
   end)
   cell:SetScript("OnEnter", function(frame)
+    lendGeometry(frame)
     if not P:ForwardMinimapScript(frame, "OnEnter") then
       GameTooltip:SetOwner(frame, "ANCHOR_BOTTOM")
       GameTooltip:ClearLines()
@@ -225,6 +421,10 @@ function P:CreateMinimapCell(name, button)
   cell:SetScript("OnLeave", function(frame)
     GameTooltip:Hide()
     P:ForwardMinimapScript(frame, "OnLeave")
+    returnGeometry(frame)
+  end)
+  cell:SetScript("OnHide", function(frame)
+    returnGeometry(frame)
   end)
 
   function cell:ContentLabel()
@@ -232,6 +432,53 @@ function P:CreateMinimapCell(name, button)
   end
 
   return cell
+end
+
+-- Stacked copies of every texture the button is made of. They are anchored to
+-- the cell's own icon, so they move and scale with it.
+local function layerFor(cell, index)
+  local layer = cell.layers[index]
+  if not layer then
+    layer = cell:CreateTexture(nil, "ARTWORK", nil, math.min(index, 7))
+    cell.layers[index] = layer
+  end
+  return layer
+end
+
+local function placeLayers(cell)
+  local iconSize = P.db.bar.iconSize
+  for index, spec in ipairs(cell.layerSpecs) do
+    local layer = cell.layers[index]
+    layer:ClearAllPoints()
+    layer:SetSize(iconSize * spec.ratio, iconSize * spec.ratio)
+    layer:SetPoint("CENTER", cell.icon, "CENTER", spec.dx * iconSize, spec.dy * iconSize)
+  end
+end
+
+local function buildLayers(cell, button, sources, datas, crop)
+  cell.layerSpecs = {}
+  local bw, bh = button:GetWidth(), button:GetHeight()
+  local bx, by
+  if button.GetCenter then
+    bx, by = button:GetCenter()
+  end
+  for index, source in ipairs(sources) do
+    local layer = layerFor(cell, index)
+    drawTexture(layer, datas[index], crop)
+    local rw = source:GetWidth()
+    local ratio = (bw and bw > 0 and rw and rw > 0) and rw / bw or 1
+    ratio = math.max(0.2, math.min(2, ratio))
+    local dx, dy = 0, 0
+    if bx and by and bw and bw > 0 and bh and bh > 0 and source.GetCenter then
+      local rx, ry = source:GetCenter()
+      if rx and ry then
+        dx, dy = (rx - bx) / bw, (ry - by) / bh
+      end
+    end
+    cell.layerSpecs[index] = { ratio = ratio, dx = dx, dy = dy }
+  end
+  -- The cell's own icon only anchors the layers.
+  cell.icon:SetTexture(nil)
 end
 
 function P:RefreshMinimapCell(cell)
@@ -245,30 +492,33 @@ function P:RefreshMinimapCell(cell)
   end
 
   local button = cell.sourceButton
-  local source = button and findIcon(button)
+  local mode = self:ElementOption(key, "iconSource")
+  local crop = self:ElementOption(key, "iconCrop")
+  local sources = button and pickSources(button, mode) or {}
+  local datas, parts = {}, { mode, crop }
+  for index, source in ipairs(sources) do
+    datas[index] = readTexture(source)
+    parts[#parts + 1] = signature(datas[index])
+  end
 
-  -- Copy the picture; skip the work when it has not changed.
-  local atlas = source and source.GetAtlas and source:GetAtlas()
-  local texture = source and source:GetTexture()
-  local signature = tostring(atlas) .. "|" .. tostring(texture)
-  if cell.iconSignature ~= signature then
-    cell.iconSignature = signature
-    if atlas then
-      cell.icon:SetAtlas(atlas)
-    elseif texture ~= nil then
-      cell.icon:SetTexture(texture)
-      if source.GetTexCoord then
-        pcall(function()
-          cell.icon:SetTexCoord(source:GetTexCoord())
-        end)
+  -- Redraw only when the picture or the chosen style changed.
+  local signatureText = table.concat(parts, "#")
+  if cell.iconSignature ~= signatureText then
+    cell.iconSignature = signatureText
+    if #sources > 0 and mode == "layers" then
+      buildLayers(cell, button, sources, datas, crop)
+    else
+      cell.layerSpecs = {}
+      if datas[1] then
+        drawTexture(cell.icon, datas[1], crop)
       end
     end
   end
 
   -- A button with no recognisable picture can only be shown by its name.
-  local hasPicture = source ~= nil
-  local showIcon = hasPicture and self.db.bar.showIcons ~= false and self:ElementOption(key, "showIcon")
-  local showLabel = self:ElementOption(key, "showLabel") or not hasPicture
+  local hasPictureSource = #sources > 0
+  local showIcon = hasPictureSource and self.db.bar.showIcons ~= false and self:ElementOption(key, "showIcon")
+  local showLabel = self:ElementOption(key, "showLabel") or not hasPictureSource
   local text = showLabel and self:MinimapLabel(cell) or ""
 
   self:ApplyCellFont(cell)
@@ -277,8 +527,14 @@ function P:RefreshMinimapCell(cell)
     cell.lastText = text
   end
   cell.iconVisible = showIcon and true or false
-  cell.icon:SetShown(cell.iconVisible)
+  cell.icon:SetShown(cell.iconVisible and #cell.layerSpecs == 0)
   self:SizeCell(cell)
+  -- SizeCell shows the icon when it has one; the layered style shows the layers.
+  cell.icon:SetShown(cell.iconVisible and #cell.layerSpecs == 0)
+  placeLayers(cell)
+  for index, layer in ipairs(cell.layers) do
+    layer:SetShown(cell.iconVisible and index <= #cell.layerSpecs)
+  end
 
   -- The mouse wheel is only captured when the button uses it.
   cell:EnableMouseWheel(button ~= nil and hasScript(button, "OnMouseWheel"))
@@ -297,7 +553,9 @@ end
 
 local function minimapParents()
   local parents = {}
-  for _, parent in ipairs({ Minimap, MinimapBackdrop, MinimapCluster }) do
+  local candidates = { [1] = Minimap, [2] = MinimapBackdrop, [3] = MinimapCluster }
+  for index = 1, 3 do
+    local parent = candidates[index]
     if type(parent) == "table" and parent.GetChildren then
       parents[#parents + 1] = parent
     end

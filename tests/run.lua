@@ -1126,6 +1126,116 @@ local okClick = pcall(broken.scripts.OnClick, broken, "LeftButton")
 check(okClick, "an erroring button does not raise through the bar")
 check(P.brokerErrors["BrokenMinimapButton"] ~= nil, "its error is recorded for /perch doctor")
 
+-- Icon styles: different ways to copy the picture from a button.
+local layered = CreateFrame("Button", "LayeredMinimapButton", Minimap)
+layered:SetSize(32, 32)
+layered:SetScript("OnClick", function() end)
+local plate = layered:CreateTexture()
+plate:SetTexture("plate")
+plate:SetSize(20, 20)
+local glyph = layered:CreateTexture()
+glyph:SetTexture("glyph")
+glyph:SetSize(30, 30)
+glyph:SetTexCoord(0.2, 0.8, 0.2, 0.8)
+glyph:SetVertexColor(1, 0.5, 0.25, 1)
+glyph:SetDesaturated(true)
+local badge = layered:CreateTexture()
+badge:SetTexture("badge")
+badge:SetSize(10, 10)
+P:ScanMinimapButtons()
+local layeredKey = "mm:LayeredMinimapButton"
+local layeredCell = P.minimapCells[layeredKey]
+check(layeredCell ~= nil, "a button made of several textures is found")
+P:SetElementEnabled(layeredKey, true)
+
+local function iconTexture()
+  return layeredCell.icon.texture
+end
+equal(iconTexture(), "plate", "automatic takes the first picture texture")
+local styles = {
+  { "first", "plate" },
+  { "last", "badge" },
+  { "largest", "glyph" },
+}
+for _, style in ipairs(styles) do
+  P:SetElementOption(layeredKey, "iconSource", style[1])
+  equal(iconTexture(), style[2], "icon source '" .. style[1] .. "' picks " .. style[2])
+end
+
+equal(layeredCell.icon.vertexColor[2], 0.5, "the source tint is copied")
+equal(layeredCell.icon.desaturated, true, "the source's desaturation is copied")
+equal(layeredCell.icon.texCoord[1], 0.2, "the original crop is kept")
+P:SetElementOption(layeredKey, "iconCrop", "full")
+equal(layeredCell.icon.texCoord[1], 0, "whole texture ignores the source crop")
+equal(layeredCell.icon.texCoord[2], 1, "and shows it all")
+P:SetElementOption(layeredKey, "iconCrop", "trimmed")
+equal(layeredCell.icon.texCoord[1], 0.08, "trimmed edges use the standard icon trim")
+P:SetElementOption(layeredKey, "iconCrop", "source")
+
+P:SetElementOption(layeredKey, "iconSource", "normal")
+equal(iconTexture(), "plate", "button texture falls back to automatic when there is none")
+
+local normalButton = CreateFrame("Button", "NormalMinimapButton", Minimap)
+normalButton:SetSize(32, 32)
+normalButton:SetScript("OnClick", function() end)
+normalButton:SetNormalTexture("normal")
+local sideTexture = normalButton:CreateTexture()
+sideTexture:SetTexture("side")
+P:ScanMinimapButtons()
+local normalKey = "mm:NormalMinimapButton"
+P:SetElementEnabled(normalKey, true)
+P:SetElementOption(normalKey, "iconSource", "normal")
+equal(P.minimapCells[normalKey].icon.texture, "normal", "button texture uses the button's normal texture")
+P:SetElementOption(normalKey, "iconSource", "last")
+equal(P.minimapCells[normalKey].icon.texture, "side", "other styles use the regions instead")
+P:SetElementEnabled(normalKey, false)
+
+P:SetElementOption(layeredKey, "iconSource", "layers")
+equal(#layeredCell.layerSpecs, 3, "all layers copies every texture")
+equal(layeredCell.layers[1].texture, "plate", "the bottom layer is the first texture")
+equal(layeredCell.layers[2].texture, "glyph", "then the next")
+equal(layeredCell.layers[3].texture, "badge", "and the top layer last")
+equal(layeredCell.layers[2].vertexColor[2], 0.5, "each layer keeps its own tint")
+check(layeredCell.layers[1]:IsShown() and layeredCell.layers[3]:IsShown(), "the layers are visible")
+check(not layeredCell.icon:IsShown(), "the cell's own icon only anchors the layers")
+check(math.abs(layeredCell.layers[1].width - P.db.bar.iconSize * 20 / 32) < 0.01,
+  "layers keep their size relative to the button")
+P:SetElementOption(layeredKey, "showIcon", false)
+check(not layeredCell.layers[1]:IsShown(), "hiding the icon hides every layer")
+P:SetElementOption(layeredKey, "showIcon", true)
+P:SetElementOption(layeredKey, "iconSource", "first")
+check(not layeredCell.layers[1]:IsShown(), "leaving the layered style hides the layers")
+equal(layeredCell.icon.texture, "plate", "and the single icon is back")
+equal(PerchDB.elements[layeredKey].iconSource, "first", "the chosen style is saved")
+
+-- The style controls on the elements page.
+P.selectedElement = layeredKey
+P:RefreshOptions()
+local sourceDropdown, cropDropdown = findDropdown("Icon source"), findDropdown("Icon crop")
+check(sourceDropdown ~= nil and sourceDropdown.button:IsShown(), "icon source shows for a minimap button")
+check(cropDropdown ~= nil and cropDropdown.button:IsShown(), "icon crop shows for a minimap button")
+equal(sourceDropdown.button.text, "First texture", "the dropdown shows the current style")
+check(pickItem(sourceDropdown, "largest"), "a style can be picked")
+equal(layeredCell.icon.texture, "glyph", "picking a style redraws the icon")
+check(pickItem(cropDropdown, "full"), "a crop can be picked")
+equal(layeredCell.icon.texCoord[1], 0, "picking a crop redraws the icon")
+P.selectedElement = goldKey
+P:RefreshOptions()
+check(not sourceDropdown.button:IsShown(), "icon style controls hide for other elements")
+
+-- Panels that place themselves from the button's rectangle follow the bar cell.
+fakeButton.left = 7
+cell.left = 500
+equal(fakeButton:GetLeft(), 7, "the button reports its own position at rest")
+cell.scripts.OnEnter(cell)
+equal(fakeButton:GetLeft(), 500, "while hovering the bar cell the button reports the cell's position")
+equal(fakeButton:GetCenter(), cell:GetCenter(), "including its centre")
+cell.scripts.OnLeave(cell)
+equal(fakeButton:GetLeft(), 7, "the button's own position is given back on leave")
+cell.scripts.OnEnter(cell)
+cell.scripts.OnHide(cell)
+equal(fakeButton:GetLeft(), 7, "and when the cell hides while hovered")
+
 -- Late buttons, the Rescan button and the doctor report.
 fakeMinimapButton("LateMinimapButton", { icon = fakeIcon })
 check(mm["mm:LateMinimapButton"] == nil, "a button created after the scan is not seen yet")
@@ -1141,7 +1251,7 @@ check(findCheckbox("Icon"):IsEnabled() and findCheckbox("Label"):IsEnabled(), "i
 
 Stub.ResetMessages()
 P:Doctor()
-check(table.concat(Stub.messages, "\n"):find("minimap buttons: 5 found", 1, true) ~= nil,
+check(table.concat(Stub.messages, "\n"):find("minimap buttons: 7 found", 1, true) ~= nil,
   "doctor reports the minimap buttons it found")
 P.selectedElement = goldKey
 P:RefreshOptions()

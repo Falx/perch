@@ -143,6 +143,11 @@ the FPS source now prefers `GetFPS` and falls back to `GetFramerate`.
 - Open questions: whether dropdown menus opened by a forwarded click anchor to
   the minimap button rather than the bar, and whether every addon's button
   exposes its picture as a field or a plain texture region.
+- FishFry's hover Snapshot is its own frame, placed from `owner:GetLeft/GetRight/
+  GetTop/GetBottom` (see `FishFry/UI/Widgets.lua`, `PlaceTooltipBeforeShow`).
+  Redirecting `GameTooltip:SetOwner` is not enough for such panels, so the cell
+  lends its geometry to the button while hovered. Anchoring a frame *to* the
+  button (`SetPoint(..., button, ...)`) would still follow the minimap.
 
 ### Still to verify
 

@@ -221,7 +221,12 @@ P:RegisterPage({
       refresh = function()
         local key = selectedKey()
         local cell = key and P:GetCell(key)
-        settingsHeader:SetText(SECTION_TITLES[key] or ((cell and cell.isCommand) and "Command settings") or "")
+        settingsHeader:SetText(
+          SECTION_TITLES[key]
+            or ((cell and cell.isCommand) and "Command settings")
+            or ((cell and cell.isMinimap) and "Minimap button icon")
+            or ""
+        )
       end,
     })
 
@@ -374,5 +379,36 @@ P:RegisterPage({
         end
       end,
     }, { removeButton })
+
+    -- Minimap buttons: how their picture is copied. Buttons are built in many
+    -- ways, so every element can pick the style that looks right.
+    local function isMinimap()
+      local key = selectedKey()
+      local cell = key and P:GetCell(key)
+      return cell ~= nil and cell.isMinimap == true
+    end
+
+    local function iconDropdown(title, y, field, presets)
+      local dropdown = UI.dropdown(content, title, DETAIL_X, y, 220, function()
+        return P:PresetItems(presets)
+      end, function()
+        local key = selectedKey()
+        return key and P:ElementOption(key, field)
+      end, function(value)
+        local key = selectedKey()
+        if key then
+          P:SetElementOption(key, field, value)
+        end
+      end)
+      showWhen(isMinimap, dropdown, { dropdown.label, dropdown.button })
+    end
+
+    iconDropdown("Icon source", -376, "iconSource", P.MINIMAP_ICON_SOURCES)
+    iconDropdown("Icon crop", -432, "iconCrop", P.MINIMAP_ICON_CROPS)
+    local iconNote = note(
+      "If the icon looks wrong, try another source. 'All layers' stacks every picture the button is made of.",
+      -488
+    )
+    showWhen(isMinimap, { refresh = function() end }, { iconNote })
   end,
 })

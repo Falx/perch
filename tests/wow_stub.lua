@@ -312,7 +312,38 @@ local function newFrame(kind, name, parent)
 
   function frame:SetColorTexture() end
 
-  function frame:SetVertexColor() end
+  function frame:SetVertexColor(r, g, b, a)
+    self.vertexColor = { r, g, b, a }
+  end
+
+  function frame:GetVertexColor()
+    local color = self.vertexColor or { 1, 1, 1, 1 }
+    return color[1], color[2], color[3], color[4]
+  end
+
+  function frame:SetDesaturated(desaturated)
+    self.desaturated = desaturated and true or false
+  end
+
+  function frame:IsDesaturated()
+    return self.desaturated or false
+  end
+
+  function frame:SetNormalTexture(texture)
+    self.normalTexture = newFrame("texture", nil, self)
+    self.normalTexture.drawLayer = "BACKGROUND"
+    if type(texture) == "string" or type(texture) == "number" then
+      self.normalTexture.texture = texture
+    end
+  end
+
+  function frame:GetNormalTexture()
+    return self.normalTexture
+  end
+
+  function frame:GetCenter()
+    return (self.left or 0) + (self.width or 0) / 2, (self.bottom or 0) + (self.height or 0) / 2
+  end
 
   function frame:SetTexCoord(...)
     self.texCoord = { ... }

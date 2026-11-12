@@ -9,6 +9,11 @@ First working build.
 
 ### Added
 
+- **Minimap button icon styles.** Each minimap element can choose how its picture
+  is copied: Automatic, First texture, Top texture, Largest texture, Button
+  texture, or All layers (every texture the button is made of, stacked), plus a
+  crop (original, whole texture, trimmed edges). The source tint and
+  desaturation are copied too. Chosen per element on the Elements page.
 - **Minimap buttons as elements.** Buttons on the minimap that Perch does not
   already list as an LDB launcher (custom addon buttons, LibDBIcon buttons with
   no matching LDB object) show up in the Elements list as "minimap button".
@@ -75,6 +80,10 @@ First working build.
 
 ### Fixed
 
+- Hover panels that are not `GameTooltip` (FishFry's Snapshot) appeared under the
+  minimap: they place themselves from the button's screen rectangle. While the
+  mouse is over the bar cell, the original button now reports the cell's
+  geometry, and gives its own back on leave or hide.
 - The poll compared the raw plugin text with the composed cell text, so any
   element with a label or custom label was refreshed every second.
 - Number boxes looked empty: the Settings canvas is built before it has a size, so
