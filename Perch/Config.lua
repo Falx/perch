@@ -79,13 +79,220 @@ local function button(parent, text, x, y, onClick)
   return widget
 end
 
+local ELEMENT_ROW_HEIGHT = 22
+
+-- Every LDB object Perch knows about, including the ones that are off. This is
+-- the "add a broker plugin to the bar" list: new plugins show up automatically.
+local function elementList(parent, x, y, width, height)
+  local scroll = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+  scroll:SetSize(width, height)
+
+  local child = CreateFrame("Frame", nil, scroll)
+  child:SetSize(width - 26, 1)
+  scroll:SetScrollChild(child)
+
+  local widget = { rows = {}, child = child }
+
+  function widget.refresh()
+    local keys = P:AllKeys()
+    for index, key in ipairs(keys) do
+      local row = widget.rows[index]
+      if not row then
+        row = CreateFrame("CheckButton", nil, child, "UICheckButtonTemplate")
+        row:SetSize(20, 20)
+        row:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -(index - 1) * ELEMENT_ROW_HEIGHT)
+        row.label = child:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.label:SetPoint("LEFT", row, "RIGHT", 4, 0)
+        row:SetScript("OnClick", function(self)
+          P:SetElementEnabled(self.elementKey, self:GetChecked() and true or false)
+        end)
+        widget.rows[index] = row
+      end
+      row.elementKey = key
+      row.label:SetText(string.format("%s (%s)", key, P:ElementKind(key)))
+      row:SetChecked(P:IsEnabled(key))
+      row:Show()
+    end
+    for index = #keys + 1, #widget.rows do
+      widget.rows[index]:Hide()
+    end
+    child:SetHeight(math.max(#keys * ELEMENT_ROW_HEIGHT, 1))
+  end
+
+  return widget
+end
+
+-- The controls themselves. Used twice: once as the Settings canvas, once inside
+-- the standalone frame that /perch frame opens.
+function P:CreateOptionsContent(parent)
+  local content = CreateFrame("Frame", nil, parent)
+  content:SetSize(620, 700)
+
+  local widgets = {}
+  local function track(widget)
+    widgets[#widgets + 1] = widget
+    return widget
+  end
+
+  local barDB = function()
+    return P.db.bar
+  end
+
+  local y = -10
+  local function nextRow(height)
+    y = y - (height or 30)
+    return y
+  end
+
+  track(checkbox(content, "Lock the bar", y, function()
+    return barDB().locked
+  end, function(value)
+    barDB().locked = value
+  end))
+
+  track(checkbox(content, "Show icons", nextRow(), function()
+    return barDB().showIcons
+  end, function(value)
+    barDB().showIcons = value
+    P:ApplyAll()
+  end))
+
+  track(checkbox(content, "Hide bar when empty", nextRow(), function()
+    return barDB().hideWhenEmpty
+  end, function(value)
+    barDB().hideWhenEmpty = value
+    P:ApplyAll()
+  end))
+
+  track(checkbox(content, "Fade until mouseover", nextRow(), function()
+    return barDB().mouseoverFade
+  end, function(value)
+    barDB().mouseoverFade = value
+    P:ApplyAll()
+  end))
+
+  track(checkbox(content, "Hide in combat", nextRow(), function()
+    return barDB().hideInCombat
+  end, function(value)
+    barDB().hideInCombat = value
+    P:ApplyAll()
+  end))
+
+  track(checkbox(content, "Click-through bar background", nextRow(), function()
+    return barDB().clickThrough
+  end, function(value)
+    barDB().clickThrough = value
+    P:ApplyAll()
+  end))
+
+  track(checkbox(content, "Show background", nextRow(), function()
+    return barDB().background.enabled
+  end, function(value)
+    barDB().background.enabled = value
+    P:ApplyAll()
+  end))
+
+  y = nextRow(24)
+
+  track(slider(content, "Scale", y, 0.5, 2.5, 0.05, function()
+    return barDB().scale
+  end, function(value)
+    barDB().scale = value
+    P:ApplyAll()
+  end, "%.2f"))
+
+  track(slider(content, "Font size", nextRow(44), 8, 24, 1, function()
+    return barDB().font.size
+  end, function(value)
+    barDB().font.size = value
+    P:ApplyAll()
+  end, "%.0f"))
+
+  track(slider(content, "Bar height", nextRow(44), 14, 40, 1, function()
+    return barDB().height
+  end, function(value)
+    barDB().height = value
+    P:ApplyAll()
+  end, "%.0f"))
+
+  track(slider(content, "Spacing", nextRow(44), 0, 24, 1, function()
+    return barDB().spacing
+  end, function(value)
+    barDB().spacing = value
+    P:ApplyAll()
+  end, "%.0f"))
+
+  track(slider(content, "Icon size", nextRow(44), 8, 32, 1, function()
+    return barDB().iconSize
+  end, function(value)
+    barDB().iconSize = value
+    P:ApplyAll()
+  end, "%.0f"))
+
+  track(slider(content, "Background alpha", nextRow(44), 0, 1, 0.05, function()
+    return barDB().background.color[4] or 0.5
+  end, function(value)
+    barDB().background.color[4] = value
+    P:ApplyAll()
+  end, "%.2f"))
+
+  -- Right column: element visibility.
+  label(content, "Elements", 340, -10, "GameFontNormal")
+  label(content, "Launchers start hidden; tick to show them.", 340, -28, "GameFontHighlightSmall")
+  track(elementList(content, 340, -50, 260, 470))
+
+  y = nextRow(52)
+
+  button(content, "Reset position", 24, y, function()
+    barDB().point, barDB().relativePoint, barDB().x, barDB().y = "TOP", "TOP", 0, -8
+    P:RestorePosition()
+    P:RequestLayout()
+  end)
+
+  button(content, "Reset settings", 176, y, function()
+    PerchDB = nil
+    P:EnsureDB()
+    P:RestorePosition()
+    P:RefreshOptions()
+    P:ApplyAll()
+    P:Print("Settings reset.")
+  end)
+
+  button(content, "Doctor report", 328, y, function()
+    P:Doctor()
+  end)
+
+  y = nextRow(40)
+  label(
+    content,
+    "Commands: /perch lock | unlock | scale <n> | enable <key> | disable <key> | cmd add <name> <macro>",
+    24,
+    y,
+    "GameFontHighlightSmall"
+  )
+
+  content:SetScript("OnShow", function()
+    P:RefreshOptions()
+  end)
+
+  self.optionWidgets = self.optionWidgets or {}
+  for _, widget in ipairs(widgets) do
+    self.optionWidgets[#self.optionWidgets + 1] = widget
+  end
+
+  return content
+end
+
+-- Standalone, draggable frame for /perch frame. The Settings canvas gets its
+-- own content copy, without chrome.
 function P:CreateOptionsFrame()
   if self.optionsFrame then
     return self.optionsFrame
   end
 
   local frame = CreateFrame("Frame", "PerchOptionsFrame", UIParent)
-  frame:SetSize(580, 640)
+  frame:SetSize(660, 760)
   frame:SetPoint("CENTER")
   frame:SetFrameStrata("DIALOG")
   frame:Hide()
@@ -111,147 +318,8 @@ function P:CreateOptionsFrame()
   local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -6)
 
-  self.optionWidgets = {}
-  local function track(widget)
-    self.optionWidgets[#self.optionWidgets + 1] = widget
-    return widget
-  end
-
-  local barDB = function()
-    return P.db.bar
-  end
-
-  local y = -80
-  local function nextRow(height)
-    y = y - (height or 30)
-    return y
-  end
-
-  track(checkbox(frame, "Lock the bar", y, function()
-    return barDB().locked
-  end, function(value)
-    barDB().locked = value
-  end))
-
-  track(checkbox(frame, "Show icons", nextRow(), function()
-    return barDB().showIcons
-  end, function(value)
-    barDB().showIcons = value
-    P:ApplyAll()
-  end))
-
-  track(checkbox(frame, "Hide bar when empty", nextRow(), function()
-    return barDB().hideWhenEmpty
-  end, function(value)
-    barDB().hideWhenEmpty = value
-    P:ApplyAll()
-  end))
-
-  track(checkbox(frame, "Fade until mouseover", nextRow(), function()
-    return barDB().mouseoverFade
-  end, function(value)
-    barDB().mouseoverFade = value
-    P:ApplyAll()
-  end))
-
-  track(checkbox(frame, "Hide in combat", nextRow(), function()
-    return barDB().hideInCombat
-  end, function(value)
-    barDB().hideInCombat = value
-    P:ApplyAll()
-  end))
-
-  track(checkbox(frame, "Click-through bar background", nextRow(), function()
-    return barDB().clickThrough
-  end, function(value)
-    barDB().clickThrough = value
-    P:ApplyAll()
-  end))
-
-  track(checkbox(frame, "Show background", nextRow(), function()
-    return barDB().background.enabled
-  end, function(value)
-    barDB().background.enabled = value
-    P:ApplyAll()
-  end))
-
-  y = nextRow(24)
-
-  track(slider(frame, "Scale", y, 0.5, 2.5, 0.05, function()
-    return barDB().scale
-  end, function(value)
-    barDB().scale = value
-    P:ApplyAll()
-  end, "%.2f"))
-
-  track(slider(frame, "Font size", nextRow(44), 8, 24, 1, function()
-    return barDB().font.size
-  end, function(value)
-    barDB().font.size = value
-    P:ApplyAll()
-  end, "%.0f"))
-
-  track(slider(frame, "Bar height", nextRow(44), 14, 40, 1, function()
-    return barDB().height
-  end, function(value)
-    barDB().height = value
-    P:ApplyAll()
-  end, "%.0f"))
-
-  track(slider(frame, "Spacing", nextRow(44), 0, 24, 1, function()
-    return barDB().spacing
-  end, function(value)
-    barDB().spacing = value
-    P:ApplyAll()
-  end, "%.0f"))
-
-  track(slider(frame, "Icon size", nextRow(44), 8, 32, 1, function()
-    return barDB().iconSize
-  end, function(value)
-    barDB().iconSize = value
-    P:ApplyAll()
-  end, "%.0f"))
-
-  track(slider(frame, "Background alpha", nextRow(44), 0, 1, 0.05, function()
-    return barDB().background.color[4] or 0.5
-  end, function(value)
-    barDB().background.color[4] = value
-    P:ApplyAll()
-  end, "%.2f"))
-
-  y = nextRow(52)
-
-  button(frame, "Reset position", 24, y, function()
-    barDB().point, barDB().relativePoint, barDB().x, barDB().y = "TOP", "TOP", 0, -8
-    P:RestorePosition()
-    P:RequestLayout()
-  end)
-
-  button(frame, "Reset settings", 176, y, function()
-    PerchDB = nil
-    P:EnsureDB()
-    P:RestorePosition()
-    P:RefreshOptions()
-    P:ApplyAll()
-    P:Print("Settings reset.")
-  end)
-
-  button(frame, "Copy doctor report", 328, y, function()
-    P:Doctor()
-  end)
-
-  y = nextRow(40)
-  frame.help = label(
-    frame,
-    "Commands: /perch lock | unlock | scale <n> | enable <key> | disable <key> | cmd add <name> <macro>",
-    24,
-    y,
-    "GameFontHighlightSmall"
-  )
-
-  frame:SetScript("OnShow", function()
-    P:RefreshOptions()
-  end)
+  frame.content = self:CreateOptionsContent(frame)
+  frame.content:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -56)
 
   self.optionsFrame = frame
   return frame
@@ -266,16 +334,20 @@ function P:RefreshOptions()
 end
 
 function P:ApplyAll()
-  if self.bar then
-    self:ApplyBarStyle()
-    for _, cell in pairs(self.brokerElements or {}) do
-      self:RefreshBrokerCell(cell, cell.obj)
-    end
+  if not self.bar then
+    return
+  end
+  self:ApplyBarStyle()
+  for _, cell in pairs(self.brokerElements or {}) do
+    self:UpdateBrokerCell(cell.brokerName)
+  end
+  -- Command cells are protected; resizing them in combat is blocked.
+  if not (InCombatLockdown and InCombatLockdown()) then
     for _, cell in pairs(self.commandCells or {}) do
       self:SizeCell(cell)
     end
-    self:RequestLayout()
   end
+  self:RequestLayout()
 end
 
 -- The category ID is assigned by the client when the category is registered.
@@ -333,11 +405,11 @@ function P:RegisterOptions()
   end
   self.optionsRegistered = true
 
-  local frame = self:CreateOptionsFrame()
-
   if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
+    local canvas = self:CreateOptionsContent(nil)
+    self.optionsCanvas = canvas
     local ok, category, assignedID = pcall(function()
-      local created = Settings.RegisterCanvasLayoutCategory(frame, "Perch")
+      local created = Settings.RegisterCanvasLayoutCategory(canvas, "Perch")
       local id = Settings.RegisterAddOnCategory(created)
       return created, id
     end)

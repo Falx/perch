@@ -133,11 +133,27 @@ scratch.text = "two"
 equal(scratchCell and scratchCell.text:GetText(), "two", "attribute change updates the cell via callback")
 
 local clicks = {}
-scratch.OnClick = function(_, button)
+local clickTarget
+scratch.OnClick = function(target, button)
+  clickTarget = target
   clicks[#clicks + 1] = button
 end
 scratchCell:GetScript("OnClick")(scratchCell, "RightButton")
 equal(clicks[1], "RightButton", "click is forwarded with the button argument")
+equal(clickTarget, scratchCell, "click forwards the cell, like LibDBIcon")
+
+local launcher = ldb:NewDataObject("Test_Launcher", {
+  type = "launcher",
+  icon = "Interface\\Icons\\INV_Misc_QuestionMark",
+})
+check(P.brokerElements["Test_Launcher"] ~= nil, "launcher gets a cell")
+check(not P:IsEnabled("Test_Launcher"), "launchers are hidden by default")
+check(not tContains(P:OrderedKeys(), "Test_Launcher"), "hidden launcher stays out of the order")
+P:SetElementEnabled("Test_Launcher", true)
+check(P:IsEnabled("Test_Launcher"), "launcher can be enabled explicitly")
+check(tContains(P:OrderedKeys(), "Test_Launcher"), "enabled launcher joins the order")
+P:SetElementEnabled("Test_Launcher", false)
+check(not P:IsEnabled("Test_Launcher"), "launcher can be disabled again")
 
 scratch.OnTooltipShow = function(tooltip)
   tooltip:AddLine("custom tooltip")
@@ -191,6 +207,8 @@ SlashCmdList["PERCH"]("cmd add Reload /reload")
 check(P.commandCells["cmd:Reload"] ~= nil, "command cell created")
 equal(P.commandCells["cmd:Reload"]:GetAttribute("macrotext"), "/reload", "macro text stored as an attribute")
 equal(P.commandCells["cmd:Reload"]:GetAttribute("type"), "macro", "secure button type is macro")
+equal(P.commandCells["cmd:Reload"].clicks and P.commandCells["cmd:Reload"].clicks[1], "AnyUp",
+  "secure button registers clicks (otherwise the macro never fires)")
 
 SlashCmdList["PERCH"]("cmd add Reload /reload")
 equal(#PerchDB.commands, 1, "duplicate command names are rejected")
@@ -258,6 +276,14 @@ check(Stub.LastMessage():find("Commands:", 1, true) ~= nil, "unknown command pri
 section("combat and options")
 
 Stub.inCombat = true
+P.layoutDeferred = nil
+P:Layout()
+check(P.layoutDeferred == true, "layout is deferred during combat")
+Stub.inCombat = false
+P:Layout()
+check(P.layoutDeferred == nil, "layout runs again after combat")
+
+Stub.inCombat = true
 Stub.ResetMessages()
 SlashCmdList["PERCH"]("cmd add Combat /say hi")
 check(P.commandRebuildPending == true, "command rebuild defers while in combat")
@@ -265,16 +291,20 @@ Stub.inCombat = false
 Stub.FireEvent("PLAYER_REGEN_ENABLED")
 check(P.commandCells["cmd:Combat"] ~= nil, "deferred rebuild happens after combat")
 
-check(P.optionsFrame ~= nil, "standalone options frame exists")
+check(P.optionsFrame == nil, "standalone frame is created lazily")
+check(P.optionsCanvas ~= nil, "settings canvas content exists")
 check(Stub.optionsCategory ~= nil, "options registered with the Settings API")
 SlashCmdList["PERCH"]("config")
 equal(Stub.openedCategory, "Perch", "config opens the Settings category")
 
-check(not P.optionsFrame:IsShown(), "standalone frame stays closed while Settings is used")
+check(P.optionsFrame == nil, "using Settings does not build the standalone frame")
 SlashCmdList["PERCH"]("frame")
-check(P.optionsFrame:IsShown(), "frame command opens the standalone options frame")
+check(P.optionsFrame ~= nil and P.optionsFrame:IsShown(), "frame command opens the standalone options frame")
 SlashCmdList["PERCH"]("frame")
 check(not P.optionsFrame:IsShown(), "frame command toggles the standalone options frame")
+
+P:RefreshOptions()
+check(#P.optionWidgets > 0, "options widgets can be refreshed")
 
 --------------------------------------------------------------------------
 -- Barrier

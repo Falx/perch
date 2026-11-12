@@ -140,15 +140,42 @@ function P:ElementDB(key)
     element = {}
     self.db.elements[key] = element
   end
-  if element.enabled == nil then
-    element.enabled = true
-  end
   return element
 end
 
 function P:IsEnabled(key)
   local element = self.db.elements[key]
-  return not (element and element.enabled == false)
+  if element and element.enabled ~= nil then
+    return element.enabled ~= false
+  end
+  -- Launcher objects are opt-in: the Forever LDB ecosystem is full of
+  -- icon-only minimap launchers that would otherwise flood the bar.
+  local cell = self:GetCell(key)
+  if cell and cell.obj and cell.obj.type == "launcher" then
+    return false
+  end
+  return true
+end
+
+function P:SetElementEnabled(key, enabled)
+  if not key then
+    return
+  end
+  self:ElementDB(key).enabled = enabled and true or false
+  self:RequestLayout()
+  self:RefreshOptions()
+end
+
+function P:ElementKind(key)
+  local cell = self:GetCell(key)
+  if cell and cell.isCommand then
+    return "command"
+  end
+  local kind = cell and cell.obj and cell.obj.type
+  if kind == "launcher" then
+    return "launcher"
+  end
+  return "data source"
 end
 
 function P:InstallErrorHook()
@@ -201,7 +228,11 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
     if P.commandRebuildPending then
       P:RebuildCommands()
     end
-    P:RequestLayout()
+    if event == "PLAYER_REGEN_DISABLED" and P.db.bar.hideInCombat and P.bar then
+      P.bar:Hide()
+    else
+      P:RequestLayout()
+    end
   end
 end)
 
@@ -274,8 +305,7 @@ function P:HandleCommand(cmd, rest)
     if not key then
       self:Print("Unknown element: " .. tostring(rest))
     else
-      self:ElementDB(key).enabled = (cmd == "enable")
-      self:RequestLayout()
+      self:SetElementEnabled(key, cmd == "enable")
       self:Print((cmd == "enable" and "Enabled " or "Disabled ") .. key)
     end
   elseif cmd == "cmd" then

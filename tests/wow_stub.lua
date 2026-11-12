@@ -316,6 +316,18 @@ local function newFrame(kind, name, parent)
     return self.fontSize or 12
   end
 
+  function frame:RegisterForClicks(...)
+    self.clicks = { ... }
+  end
+
+  function frame:SetScrollChild(child)
+    self.scrollChild = child
+  end
+
+  function frame:GetScrollChild()
+    return self.scrollChild
+  end
+
   function frame:SetTextColor() end
 
   function frame:SetShadowColor() end

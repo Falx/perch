@@ -18,6 +18,21 @@ function P:ApplyCellFont(cell)
   end
 end
 
+-- Plugin callbacks are third-party code: never let one break the bar or spam
+-- errors. The first failure per object is reported through /perch doctor.
+function P:CallBrokerHandler(cell, key, ...)
+  local data = cell and cell.obj
+  local handler = data and data[key]
+  if type(handler) ~= "function" then
+    return false
+  end
+  local ok, err = pcall(handler, cell, ...)
+  if not ok then
+    self:RecordBrokerError(cell.brokerName or "?", err)
+  end
+  return ok
+end
+
 function P:CreateBrokerCell(name, obj)
   local cell = CreateFrame("Button", nil, self.bar)
   cell.brokerName = name
@@ -33,37 +48,28 @@ function P:CreateBrokerCell(name, obj)
   cell.highlight:SetAllPoints(cell)
   cell.highlight:SetColorTexture(1, 1, 1, 0.15)
 
-  cell:SetScript("OnClick", function(_, button)
-    local data = cell.obj
-    if data and type(data.OnClick) == "function" then
-      data.OnClick(data, button)
-    end
+  -- LibDBIcon passes the display button as the first argument, and plugins
+  -- (HidingBar, EnhanceQoL, ...) rely on that: they call frame methods on it.
+  cell:SetScript("OnClick", function(frame, button)
+    P:CallBrokerHandler(frame, "OnClick", button)
   end)
 
-  cell:SetScript("OnMouseDown", function(_, button)
-    local data = cell.obj
-    if data and type(data.OnMouseDown) == "function" then
-      data.OnMouseDown(data, button)
-    end
+  cell:SetScript("OnMouseDown", function(frame, button)
+    P:CallBrokerHandler(frame, "OnMouseDown", button)
   end)
 
-  cell:SetScript("OnMouseUp", function(_, button)
-    local data = cell.obj
-    if data and type(data.OnMouseUp) == "function" then
-      data.OnMouseUp(data, button)
-    end
+  cell:SetScript("OnMouseUp", function(frame, button)
+    P:CallBrokerHandler(frame, "OnMouseUp", button)
   end)
 
   cell:SetScript("OnEnter", function(frame)
+    P:CallBrokerHandler(frame, "OnEnter")
     P:ShowBrokerTooltip(frame)
   end)
 
-  cell:SetScript("OnLeave", function()
+  cell:SetScript("OnLeave", function(frame)
     GameTooltip:Hide()
-    local data = cell.obj
-    if data and type(data.OnLeave) == "function" then
-      data.OnLeave(data)
-    end
+    P:CallBrokerHandler(frame, "OnLeave")
   end)
 
   function cell:ContentLabel()
@@ -167,12 +173,11 @@ function P:ShowBrokerTooltip(cell)
   GameTooltip:SetOwner(cell, "ANCHOR_BOTTOM")
   GameTooltip:ClearLines()
 
-  if obj and type(obj.OnEnter) == "function" then
-    obj.OnEnter(obj)
-  end
-
   if obj and type(obj.OnTooltipShow) == "function" then
-    obj.OnTooltipShow(GameTooltip)
+    local ok, err = pcall(obj.OnTooltipShow, GameTooltip)
+    if not ok then
+      self:RecordBrokerError(cell.brokerName or "?", err)
+    end
   else
     local title = (obj and obj.label) or cell.brokerName or "Perch"
     GameTooltip:SetText(tostring(title), 1, 1, 1)

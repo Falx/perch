@@ -1,7 +1,8 @@
 # Perch — design plan
 
-**Status:** Phase 0 and Phase 1 implemented; first in-game pass done, re-test after
-the font fix pending (see `docs/ADDON-NOTES.md`)
+**Status:** Phase 0/1 implemented and rendering in the client; second-pass fixes
+(callbacks, secure clicks, combat layout, embedded options) await verification —
+see `docs/ADDON-NOTES.md`
 **Last updated:** 2026-11-12
 **Target client:** World of Warcraft: Forever, interface `16001`
 **Repo identity:** `Falx <thomasdupont100@gmail.com>` (repo-local git config)
@@ -88,16 +89,24 @@ Verified against the vendored LibDataBroker-1.1 (minor 4):
 ### 4.2 Cell types
 
 **Broker cell** — `Button` with icon, font string, highlight.
-- `OnClick(self, button)` → `obj.OnClick(obj, button)`.
-- `OnMouseDown`/`OnMouseUp` forwarded when present.
+- Plugin callbacks receive the **cell**, matching LibDBIcon:
+  `OnClick(cell, button)`, `OnEnter(cell)`, `OnLeave(cell)`,
+  `OnMouseDown/OnMouseUp(cell, button)`. HidingBar and EnhanceQoL call frame
+  methods on that argument, so passing the data object breaks them.
+- All plugin callbacks are `pcall`ed; failures are reported once per object by
+  `/perch doctor`.
 - `OnEnter` → `GameTooltip:SetOwner`, then `OnTooltipShow` if defined, else
-  `label`/`text` fallback. `OnLeave` hides and forwards.
+  `label`/`text` fallback. `OnLeave` hides the tooltip and forwards.
+- The font is applied **before** the first `SetText` (16001 errors otherwise).
 - Empty text with no icon hides the cell.
+- `type == "launcher"` objects are hidden unless explicitly enabled.
 
 **Command cell** — `SecureActionButtonTemplate` with `type = "macro"`,
-`macrotext = <string>`. Works for `/cast`, `/use`, `/target` and addon slash
-commands while respecting combat protection. Rebuilds are deferred during combat
-via `InCombatLockdown()`.
+`macrotext = <string>` and `RegisterForClicks("AnyUp")` (without it the template
+never fires `OnClick`). Works for `/cast`, `/use`, `/target` and addon slash
+commands while respecting combat protection. Rebuilds are deferred during
+combat, and `Layout` is skipped entirely in combat because `ClearAllPoints` on a
+secure child is protected.
 
 ### 4.3 Layout
 
@@ -157,6 +166,12 @@ Controls: lock, show icons, hide when empty, mouseover fade, hide in combat,
 click-through, background, scale, font size, height, spacing, icon size,
 background alpha, reset position, reset settings, doctor.
 
+The Settings canvas gets its own chrome-less content frame; the draggable
+standalone frame (`/perch frame`) is built lazily and shares the same content
+builder. A scrollable **Elements** list shows every LDB object Perch knows
+about (including hidden launchers) with a checkbox per element, so new plugins
+can be added to the bar without slash commands.
+
 ---
 
 ## 5. Phases
@@ -183,6 +198,7 @@ background alpha, reset position, reset settings, doctor.
 - [ ] Re-test the bar in the client after the font fix
 
 ### Phase 2 — configuration depth
+- [x] Element visibility list: every LDB object, launchers opt-in
 - [ ] Element ordering UI (up/down or drag)
 - [ ] Per-element label, icon and colour overrides
 - [ ] Command editing UI with icon picker

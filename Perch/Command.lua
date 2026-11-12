@@ -89,6 +89,9 @@ function P:RebuildCommands()
 
     cell:SetAttribute("type", "macro")
     cell:SetAttribute("macrotext", command.macrotext or "")
+    -- Without this the secure template never fires OnClick, so the macro
+    -- silently does nothing.
+    cell:RegisterForClicks("AnyUp")
 
     cell.text = cell:CreateFontString(nil, "OVERLAY")
     self:ApplyCellFont(cell)

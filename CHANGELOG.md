@@ -33,6 +33,20 @@ First working build.
 - The poll ticker is created before the initial scan, so a scan failure cannot
   leave the bar without updates.
 - FPS falls back to `GetFramerate` (`GetFPS` is absent on 16001).
+- Plugin callbacks now receive the display cell (LibDBIcon convention), fixing
+  the HidingBar tooltip error, and are isolated with `pcall`.
+- Command cells call `RegisterForClicks("AnyUp")`; without it the secure macro
+  button never fired and `/perch cmd` buttons did nothing.
+- Layout is skipped during combat (`ClearAllPoints` on secure cells is
+  protected) and retried on `PLAYER_REGEN_ENABLED`.
+- The Settings canvas gets a chrome-less content frame instead of the draggable
+  standalone frame; `/perch frame` builds the standalone frame lazily.
+
+### Changed
+
+- Launcher-type LDB objects are hidden by default and opt-in.
+- Options pane lists every detected LDB object with a visibility checkbox.
+- `/perch list` shows all elements and marks hidden ones with `[off]`.
 
 ### Known limitations
 

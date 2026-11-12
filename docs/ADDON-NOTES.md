@@ -69,9 +69,36 @@ Fixes:
 Also fixed while in there: command cells had the same text-before-font bug, and
 the FPS source now prefers `GetFPS` and falls back to `GetFramerate`.
 
+### Second pass (same build)
+
+- **Bar renders** after the font fix: `bar: shown 1344x22 at TOP/TOP (0, -8)`,
+  20 broker cells, 0 broker errors.
+- **LDB callback convention:** LibDBIcon calls `obj.OnClick(button, mouse)` /
+  `obj.OnEnter(button)` with the *display button*, not the data object. HidingBar
+  relies on it (`btn:GetParent()`), so Perch was throwing on hover. Perch now
+  passes the cell as the first argument and wraps plugin callbacks in `pcall`
+  (failures show up as `broker errors:` in the doctor report).
+- **Secure macro buttons need `RegisterForClicks`.** Without
+  `cell:RegisterForClicks("AnyUp")` the `SecureActionButtonTemplate` never fires
+  `OnClick`, so `/perch cmd` cells silently did nothing.
+- **`ClearAllPoints()` on command cells is protected.** Laying out in combat
+  produced `ADDON_ACTION_BLOCKED ... Button:ClearAllPoints()` from `Layout`.
+  Layout is now skipped while `InCombatLockdown()` and re-run on
+  `PLAYER_REGEN_ENABLED`; `hideInCombat` hides the bar directly on
+  `PLAYER_REGEN_DISABLED`.
+- **`Settings.RegisterCanvasLayoutCategory` embeds the frame as-is.** Passing
+  the draggable standalone frame produced a floating pane inside the Settings
+  window. The canvas now gets its own chrome-less content frame, and
+  `/perch frame` builds the standalone frame lazily (it used to toggle the
+  embedded one, which looked like "nothing happens").
+- **Launcher objects:** 13 of the 20 objects are icon-only launchers
+  (`EnhanceQoL`, `OneForAll`, `OpenMap`, `HidingBar1`, ...). They are now hidden
+  by default and opt-in from the options element list.
+- `/perch list` now prints every known element with an `[off]` marker.
+
 ### Still to verify
 
-- Bar renders after the font fix (re-run pending).
-- `SecureActionButtonTemplate` + `type = "macro"` (`/perch cmd add Test /reload`).
-- Tooltips, clicks, drag/save, combat deferral, UI scale 80%/120%, second
+- Command cell actually fires the macro (`/perch cmd add Test /perch list`).
+- Options canvas layout/scroll on the real client; `/perch frame` standalone.
+- Tooltips after the callback fix, drag/save, UI scale 80%/120%, second
   character.

@@ -157,6 +157,13 @@ function P:Layout()
   if not bar then
     return
   end
+  -- Command cells are secure buttons: ClearAllPoints/SetPoint on them is
+  -- blocked in combat. Skip the pass and let PLAYER_REGEN_ENABLED retry.
+  if InCombatLockdown and InCombatLockdown() then
+    self.layoutDeferred = true
+    return
+  end
+  self.layoutDeferred = nil
   local db = self.db.bar
   local previous
   local width = db.padding * 2
@@ -187,16 +194,16 @@ function P:Layout()
 end
 
 function P:ListElements()
-  local keys = self:OrderedKeys()
+  local keys = self:AllKeys()
   if #keys == 0 then
     self:Print("No elements available yet.")
     return
   end
-  self:Print("Elements:")
+  self:Print("Elements ([off] = hidden, configure with /perch enable|disable):")
   for index, key in ipairs(keys) do
     local cell = self:GetCell(key)
     local label = cell and cell:ContentLabel() or key
-    self:Print(string.format("  %2d. %s  (%s)", index, key, label))
+    self:Print(string.format("  %2d. %s%s  (%s)", index, self:IsEnabled(key) and "" or "[off] ", key, label))
   end
 end
 
