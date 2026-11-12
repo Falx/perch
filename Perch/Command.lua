@@ -53,10 +53,9 @@ function P:RemoveCommand(name)
   end
   table.remove(self.db.commands, index)
   local key = "cmd:" .. command.name
-  for orderIndex, ordered in ipairs(self.db.order) do
-    if ordered == key then
+  for orderIndex = #self.db.order, 1, -1 do
+    if self.db.order[orderIndex] == key then
       table.remove(self.db.order, orderIndex)
-      break
     end
   end
   self.db.elements[key] = nil
@@ -64,6 +63,75 @@ function P:RemoveCommand(name)
   -- secure frame, which is protected during combat.
   self:RebuildCommands()
   self:Print("Removed command '" .. command.name .. "'.")
+  return true
+end
+
+-- First free "Command", "Command 2", ... for the Add button.
+function P:NewCommandName()
+  local name = "Command"
+  local number = 1
+  while self:FindCommand(name) do
+    number = number + 1
+    name = "Command " .. number
+  end
+  return name
+end
+
+-- Renames a command. Its key (and with it the saved element options and the bar
+-- position) moves along with it.
+function P:RenameCommand(name, newName)
+  local command = self:FindCommand(name)
+  newName = trim(newName)
+  if not command or newName == "" then
+    return false
+  end
+  if newName == command.name then
+    return true
+  end
+  if #newName > MAX_COMMAND_NAME then
+    self:Print("Command name is too long (max " .. MAX_COMMAND_NAME .. ").")
+    return false
+  end
+  if self:FindCommand(newName) then
+    self:Print("A command named '" .. newName .. "' already exists.")
+    return false
+  end
+
+  local oldKey, newKey = "cmd:" .. command.name, "cmd:" .. newName
+  command.name = newName
+  self.db.elements[newKey] = self.db.elements[oldKey]
+  self.db.elements[oldKey] = nil
+  for index, ordered in ipairs(self.db.order) do
+    if ordered == oldKey then
+      self.db.order[index] = newKey
+    end
+  end
+  if self.selectedElement == oldKey then
+    self.selectedElement = newKey
+  end
+  self:RebuildCommands()
+  return true
+end
+
+-- Changes what a command runs. Attributes of a secure button cannot change in
+-- combat, so then the saved text is picked up by the rebuild afterwards.
+function P:SetCommandMacro(name, macrotext)
+  local command = self:FindCommand(name)
+  macrotext = trim(macrotext)
+  if not command or macrotext == "" then
+    return false
+  end
+  command.macrotext = macrotext
+  local cell = self.commandCells and self.commandCells["cmd:" .. command.name]
+  if cell then
+    if inCombat() then
+      self.commandRebuildPending = true
+      self:Print("The new macro applies after combat.")
+    else
+      cell:SetAttribute("macrotext", macrotext)
+      cell:SetAttribute("macrotext1", macrotext)
+    end
+  end
   return true
 end
 

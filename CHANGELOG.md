@@ -9,6 +9,12 @@ First working build.
 
 ### Added
 
+- **Command editing on the Elements page:** an Add command button under the list,
+  and for a selected command a name box, a macro box and a Remove button (two
+  clicks to confirm). Renaming carries the command's element options and bar
+  position along; macro edits update the secure button in place and, in combat,
+  apply right after it. Invalid names (empty, too long, duplicate) and empty
+  macros are refused and the box reverts.
 - Built-in element behaviour:
   - **Gold:** right-click settings with a format preset (default, `12g 34s 56c`,
     coin icons, gold only) or a custom template using `#g #s #c` (amounts) and

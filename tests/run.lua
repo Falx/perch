@@ -883,6 +883,106 @@ check(not goldDropdown.button:IsShown() and not xpDropdown.button:IsShown(),
 P.selectedElement = goldKey
 P:RefreshOptions()
 
+-- Commands: add, rename, change the macro, remove.
+section("command editing")
+
+local function findButton(text)
+  for _, frame in ipairs(Stub.frames) do
+    if frame.kind == "Button" and frame.text == text and frame.scripts and frame.scripts.OnClick then
+      return frame
+    end
+  end
+end
+
+local function commit(editbox, text)
+  editbox.box:SetText(text)
+  editbox.box.scripts.OnEnterPressed(editbox.box)
+end
+
+equal(P:NewCommandName(), "Command", "the first new command is called Command")
+local addButton = findButton("Add command")
+check(addButton ~= nil, "the elements page has an Add command button")
+local commandsBefore = #PerchDB.commands
+addButton.scripts.OnClick(addButton)
+equal(#PerchDB.commands, commandsBefore + 1, "Add command creates a command")
+check(P.commandCells["cmd:Command"] ~= nil, "the new command has a cell on the bar")
+equal(P.selectedElement, "cmd:Command", "the new command is selected for editing")
+equal(P:NewCommandName(), "Command 2", "the next new command gets a free name")
+addButton.scripts.OnClick(addButton)
+check(P.commandCells["cmd:Command 2"] ~= nil, "a second command gets its own name")
+P.selectedElement = "cmd:Command"
+P:RefreshOptions()
+
+local boxes = P.elementCommandBoxes
+check(boxes.name.box:IsShown() and boxes.macro.box:IsShown(), "command fields show for a command")
+equal(boxes.name.box:GetText(), "Command", "the name box shows the command name")
+check(boxes.macro.box:GetText():find("Perch", 1, true) ~= nil, "the macro box shows the macro")
+
+P:SetElementOption("cmd:Command", "showIcon", false)
+table.insert(PerchDB.order, 1, "cmd:Command")
+commit(boxes.name, "Renamed")
+check(P:FindCommand("Renamed") ~= nil and P:FindCommand("Command") == nil, "renaming changes the command name")
+check(P.commandCells["cmd:Renamed"] ~= nil and P.commandCells["cmd:Command"] == nil, "the cell follows the new key")
+equal(P.selectedElement, "cmd:Renamed", "the selection follows the rename")
+equal(PerchDB.elements["cmd:Renamed"] and PerchDB.elements["cmd:Renamed"].showIcon, false,
+  "element options move to the new key")
+check(PerchDB.elements["cmd:Command"] == nil, "the old key's options are gone")
+check(tContains(PerchDB.order, "cmd:Renamed") and not tContains(PerchDB.order, "cmd:Command"),
+  "the bar order uses the new key")
+equal(boxes.name.box:GetText(), "Renamed", "the name box shows the new name")
+
+commit(boxes.name, "Reload")
+check(P:FindCommand("Renamed") ~= nil, "a duplicate name is refused")
+equal(boxes.name.box:GetText(), "Renamed", "the name box reverts after a refused rename")
+commit(boxes.name, "   ")
+check(P:FindCommand("Renamed") ~= nil, "an empty name is refused")
+commit(boxes.name, string.rep("x", 30))
+check(P:FindCommand("Renamed") ~= nil, "a too long name is refused")
+
+commit(boxes.macro, "/say hi")
+equal(P:FindCommand("Renamed").macrotext, "/say hi", "editing the macro saves it")
+equal(P.commandCells["cmd:Renamed"]:GetAttribute("macrotext"), "/say hi", "the secure button runs the new macro")
+equal(P.commandCells["cmd:Renamed"]:GetAttribute("macrotext1"), "/say hi", "left-click macro is updated too")
+commit(boxes.macro, "")
+equal(P:FindCommand("Renamed").macrotext, "/say hi", "an empty macro is refused")
+equal(boxes.macro.box:GetText(), "/say hi", "the macro box reverts after a refused edit")
+
+Stub.inCombat = true
+commit(boxes.macro, "/say later")
+equal(P:FindCommand("Renamed").macrotext, "/say later", "the macro is saved in combat")
+equal(P.commandCells["cmd:Renamed"]:GetAttribute("macrotext"), "/say hi", "the secure button is untouched in combat")
+check(P.commandRebuildPending, "the change is applied after combat")
+Stub.inCombat = false
+Stub.FireEvent("PLAYER_REGEN_ENABLED")
+equal(P.commandCells["cmd:Renamed"]:GetAttribute("macrotext"), "/say later", "the new macro applies after combat")
+
+P.selectedElement = goldKey
+P:RefreshOptions()
+check(not boxes.name.box:IsShown() and not boxes.macro.box:IsShown(), "command fields hide for other elements")
+check(not findButton("Remove command"):IsShown(), "the Remove button hides for other elements")
+
+P.selectedElement = "cmd:Renamed"
+P:RefreshOptions()
+local removeButton = findButton("Remove command")
+check(removeButton:IsShown(), "the Remove button shows for a command")
+removeButton.scripts.OnClick(removeButton)
+check(P:FindCommand("Renamed") ~= nil, "the first click only asks for confirmation")
+equal(removeButton.text, "Click again to remove", "the button asks to click again")
+P.selectedElement = goldKey
+P:RefreshOptions()
+P.selectedElement = "cmd:Renamed"
+P:RefreshOptions()
+equal(removeButton.text, "Remove command", "changing the selection cancels the confirmation")
+removeButton.scripts.OnClick(removeButton)
+removeButton.scripts.OnClick(removeButton)
+check(P:FindCommand("Renamed") == nil, "the second click removes the command")
+check(P.commandCells["cmd:Renamed"] == nil, "the cell is gone")
+check(not tContains(PerchDB.order, "cmd:Renamed"), "the order entry is gone")
+equal(removeButton.text, "Remove command", "the button resets after removing")
+SlashCmdList["PERCH"]("cmd del Command 2")
+P.selectedElement = goldKey
+P:RefreshOptions()
+
 -- Without the subcategory API every page sits behind tabs in one canvas.
 local realSubcategory = Settings.RegisterCanvasLayoutSubcategory
 Settings.RegisterCanvasLayoutSubcategory = nil

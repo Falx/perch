@@ -4,7 +4,8 @@ P = _G.Perch
 local UI = P.UI
 
 local ROW_HEIGHT = 22
-local LIST_WIDTH, LIST_HEIGHT = 250, 520
+local LIST_WIDTH, LIST_HEIGHT = 250, 480
+local DEFAULT_COMMAND_MACRO = "/script print('Edit this command in the Perch options.')"
 local DETAIL_X = 300
 
 local function selectedKey()
@@ -218,7 +219,9 @@ P:RegisterPage({
     local settingsHeader = UI.label(content, "", DETAIL_X, -350, "GameFontNormal")
     track({
       refresh = function()
-        settingsHeader:SetText(SECTION_TITLES[selectedKey()] or "")
+        local key = selectedKey()
+        local cell = key and P:GetCell(key)
+        settingsHeader:SetText(SECTION_TITLES[key] or ((cell and cell.isCommand) and "Command settings") or "")
       end,
     })
 
@@ -289,5 +292,82 @@ P:RegisterPage({
 
     formatSection("Perch_Gold", "Gold format", P.GOLD_PRESETS, "goldFormat", "goldCustom", P.GOLD_CODES, "Perch_Gold")
     formatSection("Perch_XP", "Experience format", P.XP_PRESETS, "xpFormat", "xpCustom", P.XP_CODES, "Perch_XP")
+
+    -- Commands: add from the list, edit and remove from the detail panel.
+    local function selectedCommand()
+      local key = selectedKey()
+      local cell = key and P:GetCell(key)
+      return cell and cell.isCommand and cell.command or nil
+    end
+
+    UI.button(content, "Add command", 16, -64 - LIST_HEIGHT - 12, function()
+      local name = P:NewCommandName()
+      if P:AddCommand(name, DEFAULT_COMMAND_MACRO) and P:GetCell("cmd:" .. name) then
+        P.selectedElement = "cmd:" .. name
+      end
+      P:RefreshOptions()
+    end, 130)
+
+    local nameLabel = UI.label(content, "Name", DETAIL_X, -376, "GameFontHighlight")
+    local nameBox = UI.editbox(content, DETAIL_X + 6, -396, 200, function()
+      local command = selectedCommand()
+      return command and command.name or ""
+    end, function(text)
+      local command = selectedCommand()
+      if command then
+        P:RenameCommand(command.name, text)
+      end
+      P:RefreshOptions()
+    end, { maxLetters = 24 })
+
+    local macroLabel = UI.label(content, "Macro", DETAIL_X, -426, "GameFontHighlight")
+    local macroBox = UI.editbox(content, DETAIL_X + 6, -446, 290, function()
+      local command = selectedCommand()
+      return command and command.macrotext or ""
+    end, function(text)
+      local command = selectedCommand()
+      if command then
+        P:SetCommandMacro(command.name, text)
+      end
+      P:RefreshOptions()
+    end, { maxLetters = 255 })
+    P.elementCommandBoxes = { name = nameBox, macro = macroBox }
+
+    local macroNote = note("One line, like a macro: /cast, /use, /click or an addon's slash command. Press Enter to apply.", -474)
+
+    -- Two clicks, so a stray click cannot delete a command.
+    local removeButton
+    local armed
+    removeButton = UI.button(content, "Remove command", DETAIL_X, -516, function()
+      local command = selectedCommand()
+      if not command then
+        return
+      end
+      if armed ~= command.name then
+        armed = command.name
+        removeButton:SetText("Click again to remove")
+        return
+      end
+      armed = nil
+      removeButton:SetText("Remove command")
+      P:RemoveCommand(command.name)
+      P:RefreshOptions()
+    end, 170)
+
+    local isCommand = function()
+      return selectedCommand() ~= nil
+    end
+    showWhen(isCommand, nameBox, { nameBox.box })
+    showWhen(isCommand, macroBox, { macroBox.box })
+    showWhen(isCommand, { refresh = function() end }, { nameLabel, macroLabel, macroNote })
+    showWhen(isCommand, {
+      refresh = function()
+        local command = selectedCommand()
+        if not command or armed ~= command.name then
+          armed = nil
+          removeButton:SetText("Remove command")
+        end
+      end,
+    }, { removeButton })
   end,
 })
