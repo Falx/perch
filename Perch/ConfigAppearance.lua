@@ -88,14 +88,23 @@ P:RegisterPage({
   id = "appearance",
   title = "Appearance",
   build = function(content, track)
-    track(UI.checkbox(content, "Show background", 24, -48, function()
+    track(UI.dropdown(content, "Font", 24, -48, 280, function()
+      return P:FontItems()
+    end, function()
+      return P.db.bar.font.name
+    end, function(path)
+      P.db.bar.font.name = path
+      P:ApplyAll()
+    end))
+
+    track(UI.checkbox(content, "Show background", 24, -112, function()
       return P.db.bar.background.enabled
     end, function(value)
       P.db.bar.background.enabled = value
       P:ApplyAll()
     end))
 
-    local y = -96
+    local y = -166
     for _, spec in ipairs(SLIDERS) do
       local setter = spec[7]
       track(UI.slider(content, spec[1], 24, y, spec[2], spec[3], spec[4], spec[6], function(value)

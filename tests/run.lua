@@ -424,7 +424,7 @@ for _, widget in ipairs(P.optionWidgets) do
     fontDropdown = widget
   end
 end
-check(fontDropdown ~= nil, "general page has a font selector")
+check(fontDropdown ~= nil, "appearance page has a font selector")
 equal(fontDropdown.button.text, "Friz Quadrata TT", "font selector shows the current font by name")
 fontDropdown.button.scripts.OnClick(fontDropdown.button)
 local picker = P.UI.GetPicker()
@@ -448,6 +448,29 @@ equal(P.brokerElements["Perch_Clock"].text.fontPath, P.DEFAULT_FONT,
   "an unresolvable font falls back to the default instead of leaving cells fontless")
 PerchDB.bar.font.name = "Fonts\\FRIZQT__.TTF"
 P:ApplyAll()
+
+-- Sliders have a typeable number box next to them, not just a label.
+local heightSlider
+for _, widget in ipairs(P.optionWidgets) do
+  if widget.label and widget.input and widget.label:GetText() == "Bar height" then
+    heightSlider = widget
+  end
+end
+check(heightSlider ~= nil and heightSlider.input ~= nil, "bar height slider has a number input")
+equal(heightSlider.input.box:GetText(), tostring(PerchDB.bar.height), "number input shows the current value")
+heightSlider.input.box:SetText("30")
+heightSlider.input.box.scripts.OnEnterPressed(heightSlider.input.box)
+equal(PerchDB.bar.height, 30, "typing a value applies it")
+heightSlider.input.box:SetText("500")
+heightSlider.input.box.scripts.OnEnterPressed(heightSlider.input.box)
+equal(PerchDB.bar.height, 40, "typed values are clamped to the slider maximum")
+heightSlider.input.box:SetText("abc")
+heightSlider.input.box.scripts.OnEnterPressed(heightSlider.input.box)
+equal(PerchDB.bar.height, 40, "a non-number is ignored")
+equal(heightSlider.input.box:GetText(), "40", "the input reverts after a bad value")
+heightSlider.input.box:SetText("22")
+heightSlider.input.box.scripts.OnEnterPressed(heightSlider.input.box)
+equal(PerchDB.bar.height, 22, "height restored")
 
 -- Without the subcategory API every page sits behind tabs in one canvas.
 local realSubcategory = Settings.RegisterCanvasLayoutSubcategory

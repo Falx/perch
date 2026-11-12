@@ -29,14 +29,5 @@ P:RegisterPage({
       end))
       y = y - 30
     end
-
-    track(UI.dropdown(content, "Font", 24, y - 14, 280, function()
-      return P:FontItems()
-    end, function()
-      return P.db.bar.font.name
-    end, function(path)
-      P.db.bar.font.name = path
-      P:ApplyAll()
-    end))
   end,
 })

@@ -133,6 +133,11 @@ the FPS source now prefers `GetFPS` and falls back to `GetFramerate`.
 
 ### Still to verify
 
+- Settings subpages (verified in client): `RegisterCanvasLayoutSubcategory` is
+  present, 3 subcategories register under the Perch category (id 24),
+  LibSharedMedia v5 loads (19 fonts, 17 backgrounds) and `C_UIFileAsset.IsKnownFile`
+  exists. General page toggles and the font picker work.
+
 - Command cell actually fires the macro (`/perch cmd add Test /perch list`).
 - Options canvas layout/scroll on the real client; `/perch frame` standalone.
 - Tooltips after the callback fix, drag/save, UI scale 80%/120%, second

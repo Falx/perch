@@ -37,6 +37,60 @@ function UI.checkbox(parent, text, x, y, getter, setter)
   return widget
 end
 
+-- Single-line text input. Non-live inputs apply on Enter or when focus is lost
+-- (Escape reverts); live inputs apply on every keystroke. setter(text).
+function UI.editbox(parent, x, y, width, getter, setter, live)
+  local box = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+  box:SetSize(width, 20)
+  box:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+  box:SetAutoFocus(false)
+
+  local widget = { box = box }
+
+  widget.refresh = function()
+    if not box:HasFocus() then
+      box:SetText(tostring(getter() or ""))
+    end
+  end
+
+  local function commit()
+    if widget.cancelled then
+      widget.cancelled = false
+      return
+    end
+    setter(box:GetText())
+  end
+
+  box:SetScript("OnEscapePressed", function(self)
+    widget.cancelled = true
+    self:ClearFocus()
+    widget.cancelled = false
+    widget.refresh()
+  end)
+  if live then
+    box:SetScript("OnTextChanged", function(self, userInput)
+      if userInput then
+        setter(self:GetText())
+      end
+    end)
+    box:SetScript("OnEnterPressed", function(self)
+      self:ClearFocus()
+    end)
+  else
+    box:SetScript("OnEnterPressed", function(self)
+      commit()
+      self:ClearFocus()
+      widget.refresh()
+    end)
+    box:SetScript("OnEditFocusLost", function()
+      commit()
+      widget.refresh()
+    end)
+  end
+
+  return widget
+end
+
 function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, format)
   local widget = CreateFrame("Slider", nil, parent)
   widget:SetOrientation("HORIZONTAL")
@@ -50,13 +104,28 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
   widget.label:SetPoint("BOTTOMLEFT", widget, "TOPLEFT", 0, 2)
   widget.label:SetText(text)
 
-  widget.valueText = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  widget.valueText:SetPoint("BOTTOMRIGHT", widget, "TOPRIGHT", 0, 2)
-
   local pattern = format or "%.2f"
 
+  -- Typed values are clamped and snapped to the slider's step.
+  local input = UI.editbox(parent, x + 296, y + 2, 56, function()
+    return string.format(pattern, getter())
+  end, function(typed)
+    local number = tonumber(typed)
+    if not number then
+      widget.refresh()
+      return
+    end
+    number = math.floor(number / step + 0.5) * step
+    number = math.max(minimum, math.min(maximum, number))
+    setter(number)
+    widget.refresh()
+  end)
+  widget.input = input
+
   local function display(value)
-    widget.valueText:SetText(string.format(pattern, value))
+    if not input.box:HasFocus() then
+      input.box:SetText(string.format(pattern, value))
+    end
   end
 
   widget:SetScript("OnValueChanged", function(self, value)

@@ -413,6 +413,33 @@ local function newFrame(kind, name, parent)
 
   function frame:EnableMouse() end
 
+  function frame:SetAutoFocus() end
+
+  function frame:SetFocus()
+    self.focused = true
+  end
+
+  function frame:ClearFocus()
+    local hadFocus = self.focused
+    self.focused = false
+    local handler = self.scripts and self.scripts.OnEditFocusLost
+    if hadFocus and handler then
+      handler(self)
+    end
+  end
+
+  function frame:HasFocus()
+    return self.focused or false
+  end
+
+  function frame:SetEnabled(enabled)
+    self.enabledState = enabled and true or false
+  end
+
+  function frame:IsEnabled()
+    return self.enabledState ~= false
+  end
+
   function frame:RegisterForDrag() end
 
   function frame:SetFrameStrata(strata)
