@@ -1236,6 +1236,60 @@ cell.scripts.OnEnter(cell)
 cell.scripts.OnHide(cell)
 equal(fakeButton:GetLeft(), 7, "and when the cell hides while hovered")
 
+-- Menus anchored straight to the button follow the bar cell instead.
+local menuFrame = CreateFrame("Frame", "ForwardedMenu", UIParent)
+menuFrame:Hide()
+local menuButton = CreateFrame("Button", "MenuMinimapButton", Minimap)
+menuButton:SetSize(32, 32)
+local standing = CreateFrame("Frame", "StandingNeighbour", UIParent)
+standing:SetPoint("TOP", menuButton, "BOTTOM", 0, 0)
+local child = CreateFrame("Frame", "ButtonChild", menuButton)
+child:SetPoint("CENTER", menuButton, "CENTER", 0, 0)
+local freshMenus = {}
+menuButton:SetScript("OnClick", function(self, mouse)
+  if mouse == "RightButton" then
+    -- Reuses one menu frame and creates another, as menu code does.
+    menuFrame:ClearAllPoints()
+    menuFrame:SetPoint("TOPRIGHT", self, "BOTTOMLEFT", 4, 4)
+    menuFrame:Show()
+    local fresh = CreateFrame("Frame", nil, UIParent)
+    fresh:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -2)
+    fresh:SetPoint("RIGHT", self, "RIGHT", 0, 0)
+    freshMenus[#freshMenus + 1] = fresh
+  end
+end)
+P:ScanMinimapButtons()
+local menuCell = P.minimapCells["mm:MenuMinimapButton"]
+check(menuCell ~= nil, "a button that opens menus is found")
+P:SetElementEnabled("mm:MenuMinimapButton", true)
+
+local function relativeOf(frame, index)
+  local _, relativeTo = frame:GetPoint(index or 1)
+  return relativeTo
+end
+equal(relativeOf(standing), menuButton, "before any click a neighbour is anchored to the button")
+menuCell.scripts.OnClick(menuCell, "LeftButton")
+check(not menuFrame:IsShown(), "a left-click opens no menu")
+menuCell.scripts.OnClick(menuCell, "RightButton")
+check(menuFrame:IsShown(), "the right-click opened the menu")
+equal(relativeOf(menuFrame), menuCell, "the reused menu frame is anchored to the bar cell")
+equal(menuFrame:GetPoint(), "TOPRIGHT", "its anchor point is kept")
+equal(select(5, menuFrame:GetPoint()), 4, "and its offset")
+equal(relativeOf(freshMenus[1], 1), menuCell, "a menu created by the click is anchored to the bar cell")
+equal(relativeOf(freshMenus[1], 2), menuCell, "every anchor of a new frame moves, not only the first")
+equal(relativeOf(standing), menuButton, "a frame that was already shown stays anchored to the button")
+equal(relativeOf(child), menuButton, "the button's own children stay anchored to it")
+
+menuFrame:Hide()
+menuCell.scripts.OnClick(menuCell, "RightButton")
+equal(relativeOf(menuFrame), menuCell, "reopening the menu keeps it on the bar")
+Stub.inCombat = true
+menuFrame:Hide()
+menuCell.scripts.OnClick(menuCell, "RightButton")
+equal(relativeOf(menuFrame), menuButton, "nothing is re-anchored in combat")
+Stub.inCombat = false
+P:SetElementEnabled("mm:MenuMinimapButton", false)
+
 -- Late buttons, the Rescan button and the doctor report.
 fakeMinimapButton("LateMinimapButton", { icon = fakeIcon })
 check(mm["mm:LateMinimapButton"] == nil, "a button created after the scan is not seen yet")
@@ -1251,7 +1305,7 @@ check(findCheckbox("Icon"):IsEnabled() and findCheckbox("Label"):IsEnabled(), "i
 
 Stub.ResetMessages()
 P:Doctor()
-check(table.concat(Stub.messages, "\n"):find("minimap buttons: 7 found", 1, true) ~= nil,
+check(table.concat(Stub.messages, "\n"):find("minimap buttons: 8 found", 1, true) ~= nil,
   "doctor reports the minimap buttons it found")
 P.selectedElement = goldKey
 P:RefreshOptions()

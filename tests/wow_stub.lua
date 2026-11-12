@@ -180,12 +180,19 @@ local function newFrame(kind, name, parent)
     self.points = {}
   end
 
-  function frame:GetPoint()
-    local point = self.points[1]
+  function frame:GetPoint(index)
+    local point = self.points[index or 1]
     if not point then
+      if index and index > 1 then
+        return nil
+      end
       return "CENTER", nil, "CENTER", 0, 0
     end
     return point[1], point[2], point[3], point[4], point[5]
+  end
+
+  function frame:GetNumPoints()
+    return #self.points
   end
 
   function frame:SetAllPoints()
@@ -630,6 +637,22 @@ function CreateFrame(frametype, name, parent)
     _G[name] = frame
   end
   return frame
+end
+
+-- Walks every frame (not textures or font strings), like the client's.
+function EnumerateFrames(previous)
+  local started = previous == nil
+  for _, candidate in ipairs(Stub.frames) do
+    if candidate.kind ~= "texture" and candidate.kind ~= "fontstring" and candidate.kind ~= "font" then
+      if started then
+        return candidate
+      end
+      if candidate == previous then
+        started = true
+      end
+    end
+  end
+  return nil
 end
 
 function CreateFont(path)

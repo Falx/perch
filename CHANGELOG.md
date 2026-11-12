@@ -80,6 +80,11 @@ First working build.
 
 ### Fixed
 
+- Menus that a minimap button anchors straight to itself (Polestar's right-click
+  menu) opened at the minimap. After a forwarded click, frames that are newly
+  shown and anchored to the button are re-anchored to the bar cell; frames that
+  were already there and the button's own children are left alone. Not done in
+  combat.
 - Hover panels that are not `GameTooltip` (FishFry's Snapshot) appeared under the
   minimap: they place themselves from the button's screen rectangle. While the
   mouse is over the bar cell, the original button now reports the cell's

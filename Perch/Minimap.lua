@@ -361,12 +361,86 @@ local function returnGeometry(cell)
   cell.lentGeometry = nil
 end
 
+-- Menus and panels that a button opens are often anchored straight to it
+-- (SetPoint(..., button, ...)), which would put them at the minimap. After a
+-- forwarded click, anything newly shown and anchored to the button is anchored to
+-- the bar cell instead. Frames that were already there (and the button's own
+-- children) are left alone.
+local function framesAnchoredTo(button, cell)
+  local found = {}
+  if not EnumerateFrames then
+    return found
+  end
+  local frame = EnumerateFrames()
+  while frame do
+    if frame ~= cell and frame ~= button and frame.GetNumPoints and frame:GetParent() ~= button then
+      for index = 1, frame:GetNumPoints() do
+        local _, relativeTo = frame:GetPoint(index)
+        if relativeTo == button then
+          found[#found + 1] = frame
+          break
+        end
+      end
+    end
+    frame = EnumerateFrames(frame)
+  end
+  return found
+end
+
+local function anchorToCell(frame, button, cell)
+  local points = {}
+  for index = 1, frame:GetNumPoints() do
+    local point, relativeTo, relativePoint, x, y = frame:GetPoint(index)
+    if relativeTo == button then
+      relativeTo = cell
+    end
+    points[index] = { point, relativeTo, relativePoint, x, y }
+  end
+  pcall(function()
+    frame:ClearAllPoints()
+    for _, spec in ipairs(points) do
+      frame:SetPoint(spec[1], spec[2], spec[3], spec[4], spec[5])
+    end
+  end)
+end
+
+local function withReanchor(cell, fn)
+  local button = cell.sourceButton
+  -- Protected frames cannot be re-anchored in combat.
+  if not button or not EnumerateFrames or (InCombatLockdown and InCombatLockdown()) then
+    return fn()
+  end
+  local before = {}
+  for _, frame in ipairs(framesAnchoredTo(button, cell)) do
+    before[frame] = frame:IsShown() and true or false
+  end
+  local ok, err = fn()
+  for _, frame in ipairs(framesAnchoredTo(button, cell)) do
+    if frame:IsShown() and before[frame] ~= true then
+      anchorToCell(frame, button, cell)
+    end
+  end
+  return ok, err
+end
+
+-- Scripts that may open a menu on the button.
+local OPENS_MENUS = { OnMouseUp = true, OnDoubleClick = true }
+
 function P:ForwardMinimapScript(cell, scriptName, ...)
   local button = cell.sourceButton
   if not button or not hasScript(button, scriptName) then
     return false
   end
-  local ok, err = withTooltipOnCell(button, cell, button:GetScript(scriptName), button, ...)
+  local args = { ... }
+  local run = function()
+    return withTooltipOnCell(button, cell, button:GetScript(scriptName), button, unpack(args))
+  end
+  local ok, err
+  if OPENS_MENUS[scriptName] then
+    ok, err = withReanchor(cell, run)
+  else
+    ok, err = run()
+  end
   if not ok then
     self:RecordBrokerError(cell.minimapName or "?", err)
   end
@@ -379,7 +453,9 @@ function P:ClickMinimapButton(cell, mouseButton)
   if not button or type(button.Click) ~= "function" then
     return
   end
-  local ok, err = withTooltipOnCell(button, cell, button.Click, button, mouseButton)
+  local ok, err = withReanchor(cell, function()
+    return withTooltipOnCell(button, cell, button.Click, button, mouseButton)
+  end)
   if not ok then
     self:RecordBrokerError(cell.minimapName or "?", err)
   end
