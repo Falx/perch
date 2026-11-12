@@ -62,6 +62,7 @@ Perch/                      shipped addon
   Config.lua                Options framework (widgets, picker, pages, Settings registration)
   ConfigGeneral/Appearance/Elements.lua   one options page each
   Media.lua                 LibSharedMedia wrapper with built-in fallback
+  Format.lua                #code template engine, gold and XP formats
   Libs/                     LibStub, CallbackHandler-1.0, LibDataBroker-1.1
 tests/                      headless harness (not shipped)
 tools/package.sh            validation + dist zip
@@ -200,7 +201,7 @@ without slash commands.
 - [x] Vendored LibStub, CallbackHandler-1.0, LibDataBroker-1.1
 - [x] `Perch.toc` with `## Interface: 16001`
 - [x] `tools/package.sh`
-- [x] `luajit` harness with 280 assertions
+- [x] `luajit` harness with 332 assertions
 - [x] `/perch doctor`
 
 ### Phase 1 — usable bar — DONE (pending in-game verification)

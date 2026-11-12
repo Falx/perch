@@ -681,7 +681,7 @@ function UnitLevel()
 end
 
 function GetXPExhaustion()
-  return 0
+  return Stub.rested or 0
 end
 
 function GetInventoryItemDurability(slot)
@@ -691,18 +691,21 @@ function GetInventoryItemDurability(slot)
   return nil, nil
 end
 
+Stub.bagData = { [0] = { slots = 16, free = 9 } }
+Stub.bagsToggled = 0
+
+function ToggleAllBags()
+  Stub.bagsToggled = Stub.bagsToggled + 1
+end
+
 C_Container = {
   GetContainerNumSlots = function(bag)
-    if bag == 0 then
-      return 16
-    end
-    return 0
+    local data = Stub.bagData[bag]
+    return data and data.slots or 0
   end,
   GetContainerNumFreeSlots = function(bag)
-    if bag == 0 then
-      return 9
-    end
-    return 0
+    local data = Stub.bagData[bag]
+    return data and data.free or 0
   end,
 }
 

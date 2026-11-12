@@ -9,6 +9,18 @@ First working build.
 
 ### Added
 
+- Built-in element behaviour:
+  - **Gold:** right-click settings with a format preset (default, `12g 34s 56c`,
+    coin icons, gold only) or a custom template using `#g #s #c` (amounts) and
+    `#gi #si #ci` (coin icons).
+  - **Durability:** hovering lists every slot with its percentage (no settings).
+  - **Bags:** left-click opens the bags; right-click settings has "Show as one
+    bag" (off lists each bag's free/total).
+  - **Experience:** right-click settings with presets (current %, current % +
+    rested %, current/max, current+rested/max, missing) or a custom template using
+    `#c #m #r #x #p #rp #xp`. The bar also refreshes on rested-XP changes.
+  - Templates use one shared code engine: longest code wins, `##` is a literal `#`.
+
 - Right-clicking a built-in element opens its settings: the Elements page with
   that element selected. The page now has an "element settings" section for the
   built-ins that have any: Clock (24-hour, local time) and Coordinates (decimals).

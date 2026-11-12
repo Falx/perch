@@ -53,6 +53,11 @@ local defaults = {
     clock24 = false,
     clockLocal = false,
     coordDecimals = 1,
+    goldFormat = "default",
+    goldCustom = "#gg #ss #cc",
+    xpFormat = "percent",
+    xpCustom = "#p% (#c/#m)",
+    bagsCombined = true,
   },
 }
 

@@ -746,6 +746,152 @@ P:RefreshBuiltin("Perch_Coords")
 P.selectedElement = goldKey
 P:RefreshOptions()
 
+-- Built-in formats, bags and durability.
+section("built-in settings")
+
+local codes = P:FormatCodes("#g g #s s", { g = 12, s = 34 })
+equal(codes, "12 g 34 s", "format codes expand")
+equal(P:FormatCodes("##g #z", { g = 1 }), "#g #z", "## is a literal # and unknown codes stay as typed")
+equal(P:FormatCodes("#gi #g", { g = "G", gi = "ICON" }), "ICON G", "the longest code wins")
+
+local copper = 123 * 10000 + 45 * 100 + 67
+equal(P:FormatMoneyDisplay(copper), "123g 45s", "default gold format is unchanged")
+PerchDB.settings.goldFormat = "letters"
+equal(P:FormatMoneyDisplay(copper), "123g 45s 67c", "letters preset shows gold, silver and copper")
+PerchDB.settings.goldFormat = "gold"
+equal(P:FormatMoneyDisplay(copper), "123g", "gold-only preset")
+PerchDB.settings.goldFormat = "icons"
+local iconText = P:FormatMoneyDisplay(copper)
+check(iconText:find("UI-GoldIcon", 1, true) and iconText:find("UI-SilverIcon", 1, true)
+  and iconText:find("UI-CopperIcon", 1, true), "icons preset uses the three coin icons")
+PerchDB.settings.goldFormat = "custom"
+PerchDB.settings.goldCustom = "#g/#s/#c"
+equal(P:FormatMoneyDisplay(copper), "123/45/67", "custom gold format uses the codes")
+PerchDB.settings.goldCustom = ""
+equal(P:FormatMoneyDisplay(copper), "123g 45s", "an empty custom gold format falls back to the default")
+PerchDB.settings.goldFormat = "letters"
+P:RefreshBuiltin("Perch_Gold")
+equal(P.brokerElements["Perch_Gold"].text:GetText(), "123g 45s 67c", "changing the gold format re-renders the bar")
+PerchDB.settings.goldFormat = "default"
+P:RefreshBuiltin("Perch_Gold")
+
+local xpCases = {
+  { "percent", 0, "50%" },
+  { "percentRested", 250, "50%+25%" },
+  { "fraction", 0, "500/1000" },
+  { "fractionRested", 250, "500+250/1000" },
+  { "missing", 0, "-500" },
+  { "custom", 250, "50% (500/1000)" },
+}
+for _, case in ipairs(xpCases) do
+  PerchDB.settings.xpFormat = case[1]
+  Stub.rested = case[2]
+  P:RefreshBuiltin("Perch_XP")
+  equal(P.brokerElements["Perch_XP"].text:GetText(), case[3], "XP format '" .. case[1] .. "'")
+end
+PerchDB.settings.xpCustom = "#xp% left, #r rested"
+Stub.rested = 100
+P:RefreshBuiltin("Perch_XP")
+equal(P.brokerElements["Perch_XP"].text:GetText(), "50% left, 100 rested", "custom XP codes")
+PerchDB.settings.xpFormat = "percent"
+Stub.rested = 0
+P:RefreshBuiltin("Perch_XP")
+
+local bagsCell = P.brokerElements["Perch_Bags"]
+equal(bagsCell.text:GetText(), "9/16", "bags show as one bag by default")
+Stub.bagData[1] = { slots = 8, free = 3 }
+P:RefreshBuiltin("Perch_Bags")
+equal(bagsCell.text:GetText(), "12/24", "combined bags add up")
+PerchDB.settings.bagsCombined = false
+P:RefreshBuiltin("Perch_Bags")
+equal(bagsCell.text:GetText(), "9/16 | 3/8", "separate bags list each one")
+PerchDB.settings.bagsCombined = true
+Stub.bagData[1] = nil
+P:RefreshBuiltin("Perch_Bags")
+
+Stub.openedCategory = nil
+bagsCell.scripts.OnClick(bagsCell, "LeftButton")
+equal(Stub.bagsToggled, 1, "left-clicking bags toggles the bags")
+equal(Stub.openedCategory, nil, "left-clicking bags does not open the options")
+bagsCell.scripts.OnClick(bagsCell, "RightButton")
+equal(Stub.bagsToggled, 1, "right-clicking bags does not toggle them")
+equal(P.selectedElement, "Perch_Bags", "right-clicking bags opens their settings")
+
+local durabilityCell = P.brokerElements["Perch_Durability"]
+Stub.openedCategory = nil
+durabilityCell.scripts.OnClick(durabilityCell, "RightButton")
+equal(Stub.openedCategory, nil, "durability has no right-click settings")
+GameTooltip.lines = {}
+P:ShowBrokerTooltip(durabilityCell)
+local tooltip = table.concat(GameTooltip.lines, "\n")
+check(tooltip:find("Head 80%", 1, true) ~= nil, "durability tooltip lists the head slot")
+check(tooltip:find("Chest 80%", 1, true) ~= nil, "durability tooltip lists the chest slot")
+
+-- Settings UI for these elements.
+local function pickItem(dropdown, value)
+  dropdown.button.scripts.OnClick(dropdown.button)
+  for _, row in ipairs(P.UI.GetPicker().rows) do
+    if row:IsShown() and row.item.value == value then
+      row.scripts.OnClick(row)
+      return true
+    end
+  end
+  return false
+end
+
+local function findDropdown(label)
+  for _, widget in ipairs(P.optionWidgets) do
+    if widget.button and widget.label and widget.label:GetText() == label then
+      return widget
+    end
+  end
+end
+
+P.selectedElement = "Perch_Gold"
+P:RefreshOptions()
+local goldDropdown = findDropdown("Gold format")
+check(goldDropdown ~= nil and goldDropdown.button:IsShown(), "gold format selector shows for the gold element")
+check(not findCheckbox("Show as one bag"):IsShown(), "bag settings hide for the gold element")
+check(pickItem(goldDropdown, "custom"), "gold format can be set to custom")
+equal(PerchDB.settings.goldFormat, "custom", "the preset choice is stored")
+PerchDB.settings.goldCustom = "#g"
+local customBoxes = {}
+for _, frame in ipairs(Stub.frames) do
+  if frame.kind == "EditBox" and frame.maxLetters == 60 then
+    customBoxes[#customBoxes + 1] = frame
+  end
+end
+check(#customBoxes >= 2, "gold and XP have custom format boxes")
+local goldBox = customBoxes[1]
+check(goldBox:IsShown(), "the custom gold box shows once Custom is chosen")
+goldBox:SetText("#g only")
+goldBox.scripts.OnTextChanged(goldBox, true)
+equal(PerchDB.settings.goldCustom, "#g only", "typing a custom gold format stores it")
+equal(P.brokerElements["Perch_Gold"].text:GetText(), "123 only", "the custom gold format applies live")
+check(pickItem(goldDropdown, "default"), "gold format can go back to the default")
+check(not goldBox:IsShown(), "the custom gold box hides for presets")
+
+P.selectedElement = "Perch_XP"
+P:RefreshOptions()
+local xpDropdown = findDropdown("Experience format")
+check(xpDropdown ~= nil and xpDropdown.button:IsShown(), "XP format selector shows for the XP element")
+check(not goldDropdown.button:IsShown(), "gold format selector hides for the XP element")
+check(pickItem(xpDropdown, "fraction"), "XP format can be changed")
+equal(P.brokerElements["Perch_XP"].text:GetText(), "500/1000", "the XP format applies immediately")
+check(pickItem(xpDropdown, "percent"), "XP format restored")
+
+P.selectedElement = "Perch_Bags"
+P:RefreshOptions()
+local oneBag = findCheckbox("Show as one bag")
+check(oneBag:IsShown(), "the one-bag option shows for the bags element")
+oneBag:SetChecked(false)
+oneBag.scripts.OnClick(oneBag)
+equal(PerchDB.settings.bagsCombined, false, "one-bag checkbox writes the setting")
+oneBag:SetChecked(true)
+oneBag.scripts.OnClick(oneBag)
+P.selectedElement = goldKey
+P:RefreshOptions()
+
 -- Without the subcategory API every page sits behind tabs in one canvas.
 local realSubcategory = Settings.RegisterCanvasLayoutSubcategory
 Settings.RegisterCanvasLayoutSubcategory = nil

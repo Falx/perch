@@ -181,34 +181,56 @@ P:RegisterPage({
 
     -- Settings of the built-in sources that have any. Right-clicking a built-in
     -- on the bar opens this page with it selected.
-    local function onlyFor(key, widget, parts)
+    local function isSelected(key, extra)
+      return function()
+        return selectedKey() == key and (extra == nil or extra())
+      end
+    end
+
+    -- Shows a widget (and its separate label parts) only while match() is true.
+    local function showWhen(match, widget, parts)
       local base = widget.refresh
       widget.refresh = function()
-        base()
-        local match = selectedKey() == key
+        if base then
+          base()
+        end
+        local visible = match() and true or false
         for _, part in ipairs(parts) do
-          part:SetShown(match)
+          part:SetShown(visible)
         end
       end
       return track(widget)
     end
 
+    local function note(text, y)
+      local fontString = UI.label(content, text, DETAIL_X, y, "GameFontDisableSmall")
+      fontString:SetWidth(300)
+      fontString:SetJustifyH("LEFT")
+      return fontString
+    end
+
+    local SECTION_TITLES = {
+      Perch_Clock = "Clock settings",
+      Perch_Coords = "Coordinate settings",
+      Perch_Gold = "Gold settings",
+      Perch_Bags = "Bag settings",
+      Perch_XP = "Experience settings",
+    }
     local settingsHeader = UI.label(content, "", DETAIL_X, -350, "GameFontNormal")
     track({
       refresh = function()
-        local key = selectedKey()
-        local title = (key == "Perch_Clock" and "Clock settings") or (key == "Perch_Coords" and "Coordinate settings")
-        settingsHeader:SetText(title or "")
+        settingsHeader:SetText(SECTION_TITLES[selectedKey()] or "")
       end,
     })
 
+    -- Clock
     local clock24 = UI.checkbox(content, "24-hour clock", DETAIL_X, -376, function()
       return P.db.settings.clock24
     end, function(value)
       P.db.settings.clock24 = value
       P:RefreshBuiltin("Perch_Clock")
     end)
-    onlyFor("Perch_Clock", clock24, { clock24, clock24.label })
+    showWhen(isSelected("Perch_Clock"), clock24, { clock24, clock24.label })
 
     local clockLocal = UI.checkbox(content, "Use local time instead of server time", DETAIL_X, -406, function()
       return P.db.settings.clockLocal
@@ -216,8 +238,9 @@ P:RegisterPage({
       P.db.settings.clockLocal = value
       P:RefreshBuiltin("Perch_Clock")
     end)
-    onlyFor("Perch_Clock", clockLocal, { clockLocal, clockLocal.label })
+    showWhen(isSelected("Perch_Clock"), clockLocal, { clockLocal, clockLocal.label })
 
+    -- Coordinates
     local decimals = UI.dropdown(content, "Coordinate decimals", DETAIL_X, -376, 120, function()
       return {
         { label = "0", value = 0 },
@@ -230,6 +253,53 @@ P:RegisterPage({
       P.db.settings.coordDecimals = value
       P:RefreshBuiltin("Perch_Coords")
     end)
-    onlyFor("Perch_Coords", decimals, { decimals.label, decimals.button })
+    showWhen(isSelected("Perch_Coords"), decimals, { decimals.label, decimals.button })
+
+    -- Bags
+    local combined = UI.checkbox(content, "Show as one bag (free/total of all bags)", DETAIL_X, -376, function()
+      return P.db.settings.bagsCombined ~= false
+    end, function(value)
+      P.db.settings.bagsCombined = value
+      P:RefreshBuiltin("Perch_Bags")
+    end)
+    showWhen(isSelected("Perch_Bags"), combined, { combined, combined.label })
+    local bagsNote = note("Left-click opens your bags. Unticked, each bag shows its own free/total.", -406)
+    showWhen(isSelected("Perch_Bags"), { refresh = function() end }, { bagsNote })
+
+    -- Gold and experience share one layout: a format preset, a custom template
+    -- shown only for "Custom", and a reminder of the codes.
+    local function formatSection(key, title, presets, formatKey, customKey, codes, refreshKey)
+      local isCustom = function()
+        return P.db.settings[formatKey] == "custom"
+      end
+
+      local preset = UI.dropdown(content, title, DETAIL_X, -376, 240, function()
+        return P:PresetItems(presets)
+      end, function()
+        return P.db.settings[formatKey]
+      end, function(value)
+        P.db.settings[formatKey] = value
+        P:RefreshBuiltin(refreshKey)
+        P:RefreshOptions()
+      end)
+      showWhen(isSelected(key), preset, { preset.label, preset.button })
+
+      local customLabel = UI.label(content, "Custom format", DETAIL_X, -430, "GameFontHighlight")
+      showWhen(isSelected(key, isCustom), { refresh = function() end }, { customLabel })
+
+      local custom = UI.editbox(content, DETAIL_X + 6, -450, 260, function()
+        return P.db.settings[customKey]
+      end, function(text)
+        P.db.settings[customKey] = text
+        P:RefreshBuiltin(refreshKey)
+      end, { live = true, maxLetters = 60 })
+      showWhen(isSelected(key, isCustom), custom, { custom.box })
+
+      local codesNote = note("Codes: " .. codes, -482)
+      showWhen(isSelected(key), { refresh = function() end }, { codesNote })
+    end
+
+    formatSection("Perch_Gold", "Gold format", P.GOLD_PRESETS, "goldFormat", "goldCustom", P.GOLD_CODES, "Perch_Gold")
+    formatSection("Perch_XP", "Experience format", P.XP_PRESETS, "xpFormat", "xpCustom", P.XP_CODES, "Perch_XP")
   end,
 })
