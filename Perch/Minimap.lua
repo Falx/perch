@@ -366,6 +366,29 @@ end
 -- forwarded click, anything newly shown and anchored to the button is anchored to
 -- the bar cell instead. Frames that were already there (and the button's own
 -- children) are left alone.
+local function frameAnchoredTo(frame, button)
+  if not frame.GetNumPoints then
+    return false
+  end
+  -- Forbidden and protected frames cannot be measured (or moved) by addon code.
+  if frame.IsForbidden and frame:IsForbidden() then
+    return false
+  end
+  if frame.IsProtected and frame:IsProtected() then
+    return false
+  end
+  if frame:GetParent() == button then
+    return false
+  end
+  for index = 1, frame:GetNumPoints() do
+    local _, relativeTo = frame:GetPoint(index)
+    if relativeTo == button then
+      return true
+    end
+  end
+  return false
+end
+
 local function framesAnchoredTo(button, cell)
   local found = {}
   if not EnumerateFrames then
@@ -373,13 +396,11 @@ local function framesAnchoredTo(button, cell)
   end
   local frame = EnumerateFrames()
   while frame do
-    if frame ~= cell and frame ~= button and frame.GetNumPoints and frame:GetParent() ~= button then
-      for index = 1, frame:GetNumPoints() do
-        local _, relativeTo = frame:GetPoint(index)
-        if relativeTo == button then
-          found[#found + 1] = frame
-          break
-        end
+    if frame ~= cell and frame ~= button then
+      -- Some frames refuse to be measured ("restricted regions"): skip those.
+      local ok, anchored = pcall(frameAnchoredTo, frame, button)
+      if ok and anchored then
+        found[#found + 1] = frame
       end
     end
     frame = EnumerateFrames(frame)
@@ -388,15 +409,15 @@ local function framesAnchoredTo(button, cell)
 end
 
 local function anchorToCell(frame, button, cell)
-  local points = {}
-  for index = 1, frame:GetNumPoints() do
-    local point, relativeTo, relativePoint, x, y = frame:GetPoint(index)
-    if relativeTo == button then
-      relativeTo = cell
-    end
-    points[index] = { point, relativeTo, relativePoint, x, y }
-  end
   pcall(function()
+    local points = {}
+    for index = 1, frame:GetNumPoints() do
+      local point, relativeTo, relativePoint, x, y = frame:GetPoint(index)
+      if relativeTo == button then
+        relativeTo = cell
+      end
+      points[index] = { point, relativeTo, relativePoint, x, y }
+    end
     frame:ClearAllPoints()
     for _, spec in ipairs(points) do
       frame:SetPoint(spec[1], spec[2], spec[3], spec[4], spec[5])
@@ -415,11 +436,14 @@ local function withReanchor(cell, fn)
     before[frame] = frame:IsShown() and true or false
   end
   local ok, err = fn()
-  for _, frame in ipairs(framesAnchoredTo(button, cell)) do
-    if frame:IsShown() and before[frame] ~= true then
-      anchorToCell(frame, button, cell)
+  -- Whatever happens here, the click itself has already run.
+  pcall(function()
+    for _, frame in ipairs(framesAnchoredTo(button, cell)) do
+      if frame:IsShown() and before[frame] ~= true then
+        anchorToCell(frame, button, cell)
+      end
     end
-  end
+  end)
   return ok, err
 end
 

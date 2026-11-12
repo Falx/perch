@@ -148,7 +148,9 @@ the FPS source now prefers `GetFPS` and falls back to `GetFramerate`.
   Perch walks `EnumerateFrames`, and re-anchors frames that are newly shown and
   anchored to the button onto the bar cell (before/after snapshot, so existing
   anchors and the button's children stay). Costs one pass over all frames per
-  click, twice (before and after).
+  click, twice (before and after). Some frames raise "Can't measure restricted
+  regions" from `GetPoint`/`GetNumPoints`: the scan skips forbidden and protected
+  frames and `pcall`s every frame it inspects.
 - FishFry's hover Snapshot is its own frame, placed from `owner:GetLeft/GetRight/
   GetTop/GetBottom` (see `FishFry/UI/Widgets.lua`, `PlaceTooltipBeforeShow`).
   Redirecting `GameTooltip:SetOwner` is not enough for such panels, so the cell

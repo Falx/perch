@@ -192,7 +192,18 @@ local function newFrame(kind, name, parent)
   end
 
   function frame:GetNumPoints()
+    if self.restricted then
+      error("Action[FrameMeasurement] failed because[Can't measure restricted regions]", 2)
+    end
     return #self.points
+  end
+
+  function frame:IsProtected()
+    return self.protectedFrame == true
+  end
+
+  function frame:IsForbidden()
+    return self.forbiddenFrame == true
   end
 
   function frame:SetAllPoints()

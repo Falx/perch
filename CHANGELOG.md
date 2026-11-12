@@ -80,6 +80,10 @@ First working build.
 
 ### Fixed
 
+- Right-clicking a minimap button raised "Can't measure restricted regions" and
+  never ran the click: the frame scan measured every frame, and some refuse to be
+  measured. Forbidden and protected frames are now skipped, every frame check is
+  guarded, and the re-anchoring runs after the click so it can never block it.
 - Menus that a minimap button anchors straight to itself (Polestar's right-click
   menu) opened at the minimap. After a forwarded click, frames that are newly
   shown and anchored to the button are re-anchored to the bar cell; frames that

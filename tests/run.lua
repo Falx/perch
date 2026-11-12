@@ -1283,6 +1283,28 @@ equal(relativeOf(child), menuButton, "the button's own children stay anchored to
 menuFrame:Hide()
 menuCell.scripts.OnClick(menuCell, "RightButton")
 equal(relativeOf(menuFrame), menuCell, "reopening the menu keeps it on the bar")
+
+-- Frames that refuse to be measured must not break the click or the move.
+local restricted = CreateFrame("Frame", "RestrictedNeighbour", UIParent)
+restricted.restricted = true
+local forbidden = CreateFrame("Frame", "ForbiddenNeighbour", UIParent)
+forbidden.forbiddenFrame = true
+local secure = CreateFrame("Frame", "SecureNeighbour", UIParent)
+secure.protectedFrame = true
+secure:SetPoint("TOP", menuButton, "BOTTOM", 0, 0)
+secure:Hide()
+menuFrame:Hide()
+local clicked = pcall(menuCell.scripts.OnClick, menuCell, "RightButton")
+check(clicked, "a restricted frame does not raise through the click")
+check(menuFrame:IsShown(), "the click still opened the menu")
+equal(relativeOf(menuFrame), menuCell, "and the menu still moved to the bar")
+secure:Show()
+menuCell.scripts.OnClick(menuCell, "RightButton")
+equal(relativeOf(secure), menuButton, "protected frames are never re-anchored")
+secure:Hide()
+restricted.restricted = false
+forbidden.forbiddenFrame = false
+
 Stub.inCombat = true
 menuFrame:Hide()
 menuCell.scripts.OnClick(menuCell, "RightButton")
