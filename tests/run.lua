@@ -983,6 +983,169 @@ SlashCmdList["PERCH"]("cmd del Command 2")
 P.selectedElement = goldKey
 P:RefreshOptions()
 
+-- Minimap buttons as elements.
+section("minimap buttons")
+
+local calls = {}
+local function fakeMinimapButton(name, options)
+  options = options or {}
+  local button = CreateFrame(options.kind or "Button", name, Minimap)
+  button:SetSize(options.size or 32, options.size or 32)
+  if options.border then
+    local border = button:CreateTexture()
+    border.name = name .. "Border"
+    border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+  end
+  if options.icon then
+    local icon = button:CreateTexture()
+    icon:SetTexture(options.icon)
+    icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+  end
+  if not options.inert then
+    for _, script in ipairs({ "OnClick", "OnMouseDown", "OnMouseUp", "OnDoubleClick", "OnMouseWheel", "OnLeave" }) do
+      if script ~= "OnMouseWheel" or options.wheel then
+        button:SetScript(script, function(self, ...)
+          calls[#calls + 1] = { name, script, self, ... }
+          if options.broken and script == "OnClick" then
+            error("minimap button exploded")
+          end
+        end)
+      end
+    end
+    if not options.noTip then
+      button:SetScript("OnEnter", function(self)
+        calls[#calls + 1] = { name, "OnEnter", self }
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        GameTooltip:ClearLines()
+        GameTooltip:AddLine("minimap tooltip")
+      end)
+    end
+  end
+  return button
+end
+
+local fakeIcon = "Interface\\Icons\\INV_Misc_Gear_01"
+local fakeButton = fakeMinimapButton("FakeAddonMinimapButton", { border = true, icon = fakeIcon, wheel = true })
+fakeMinimapButton("PlainMinimapButton", { noTip = true })
+fakeMinimapButton("BrokenMinimapButton", { icon = fakeIcon, broken = true })
+fakeMinimapButton("MiniMapTracking", { icon = fakeIcon })
+fakeMinimapButton("HugeMinimapThing", { icon = fakeIcon, size = 120 })
+fakeMinimapButton("InertMinimapThing", { icon = fakeIcon, inert = true })
+fakeMinimapButton("NotAButtonFrame", { kind = "Frame", icon = fakeIcon })
+fakeMinimapButton("LibDBIcon10_Test_Scratch", { icon = fakeIcon })
+fakeMinimapButton("LibDBIcon10_NoSuchObject", { icon = fakeIcon })
+
+P:ScanMinimapButtons()
+local mm = P.minimapCells
+check(mm["mm:FakeAddonMinimapButton"] ~= nil, "a minimap button becomes an element")
+check(mm["mm:PlainMinimapButton"] ~= nil, "a button without a picture is found too")
+check(mm["mm:BrokenMinimapButton"] ~= nil, "a misbehaving button is found")
+check(mm["mm:LibDBIcon10_NoSuchObject"] ~= nil, "a LibDBIcon button without an LDB object is found")
+check(mm["mm:MiniMapTracking"] == nil, "Blizzard's minimap buttons are skipped")
+check(mm["mm:HugeMinimapThing"] == nil, "oversized frames are skipped")
+check(mm["mm:InertMinimapThing"] == nil, "buttons that do nothing are skipped")
+check(mm["mm:NotAButtonFrame"] == nil, "plain frames are skipped")
+check(mm["mm:LibDBIcon10_Test_Scratch"] == nil, "a LibDBIcon button whose LDB object is listed is skipped")
+
+local cell = mm["mm:FakeAddonMinimapButton"]
+local key = "mm:FakeAddonMinimapButton"
+equal(P:ElementKind(key), "minimap button", "minimap elements have their own kind")
+equal(P:ElementTitle(key), "FakeAddonMinimapButton", "the list shows the button name")
+check(tContains(P:AllKeys(), key), "minimap elements are in the element list")
+check(not P:IsEnabled(key), "minimap buttons are off until enabled")
+check(not cell:IsShown(), "a disabled minimap button is hidden on the bar")
+equal(cell.clicks and cell.clicks[1], "AnyUp", "minimap cells receive every mouse button")
+
+P:SetElementEnabled(key, true)
+check(cell:IsShown(), "an enabled minimap button shows")
+equal(cell.icon.texture, fakeIcon, "it shows the button's own picture, not its border")
+equal(cell.icon.texCoord[1], 0.1, "the picture keeps its crop")
+equal(cell.text:GetText(), "", "by default only the icon shows")
+check(cell.icon:IsShown(), "the icon is visible")
+
+P:SetElementOption(key, "showLabel", true)
+equal(cell.text:GetText(), "FakeAddon", "the label is the button name without the Minimap/Button suffix")
+P:SetElementOption(key, "label", "Fake")
+equal(cell.text:GetText(), "Fake", "a custom label replaces it")
+P:SetElementOption(key, "showIcon", false)
+check(not cell.icon:IsShown(), "the icon can be switched off")
+equal(cell.text:GetText(), "Fake", "leaving only the label")
+P:SetElementOption(key, "showLabel", false)
+check(not cell:IsShown(), "with neither icon nor label there is nothing to show")
+P:SetElementOption(key, "showIcon", true)
+P:SetElementOption(key, "label", "")
+check(cell:IsShown(), "the icon returns")
+
+local plain = mm["mm:PlainMinimapButton"]
+P:SetElementEnabled("mm:PlainMinimapButton", true)
+equal(plain.text:GetText(), "Plain", "a button with no picture falls back to its name")
+check(plain:IsShown(), "and is shown")
+
+-- Mouse input reaches the original button, with the real button as self.
+calls = {}
+cell.scripts.OnMouseDown(cell, "RightButton")
+cell.scripts.OnMouseUp(cell, "RightButton")
+cell.scripts.OnClick(cell, "RightButton")
+equal(#calls, 3, "mouse down, up and click are forwarded")
+equal(calls[1][2], "OnMouseDown", "mouse down is forwarded first")
+equal(calls[2][2], "OnMouseUp", "then mouse up")
+equal(calls[3][2], "OnClick", "then the click")
+equal(calls[3][4], "RightButton", "the mouse button is passed on")
+equal(calls[3][3], fakeButton, "the original button is the handler's self")
+calls = {}
+cell.scripts.OnClick(cell, "MiddleButton")
+equal(calls[1][4], "MiddleButton", "middle-click is forwarded")
+cell.scripts.OnDoubleClick(cell, "LeftButton")
+equal(calls[2][2], "OnDoubleClick", "double-click is forwarded")
+
+check(cell.mouseWheelEnabled, "the wheel is captured when the button uses it")
+check(not plain.mouseWheelEnabled, "the wheel is left alone otherwise")
+calls = {}
+cell.scripts.OnMouseWheel(cell, 1)
+equal(calls[1] and calls[1][2], "OnMouseWheel", "the mouse wheel is forwarded")
+
+local setOwnerBefore = GameTooltip.SetOwner
+calls = {}
+cell.scripts.OnEnter(cell)
+equal(calls[1][2], "OnEnter", "hovering runs the button's own OnEnter")
+equal(GameTooltip.owner, cell, "its tooltip is anchored to the bar cell, not the minimap")
+equal(GameTooltip.ownerAnchor, "ANCHOR_BOTTOM", "below the bar")
+equal(GameTooltip.lines[1], "minimap tooltip", "with the button's own tooltip text")
+equal(GameTooltip.SetOwner, setOwnerBefore, "the tooltip redirect is removed again")
+GameTooltip.lines = { "x" }
+cell.scripts.OnLeave(cell)
+equal(calls[#calls][2], "OnLeave", "leaving runs the button's OnLeave")
+
+plain.scripts.OnEnter(plain)
+equal(GameTooltip.text, "PlainMinimapButton", "a button without a tooltip gets its name as one")
+
+-- A button that errors cannot take the bar down.
+local broken = mm["mm:BrokenMinimapButton"]
+P:SetElementEnabled("mm:BrokenMinimapButton", true)
+local okClick = pcall(broken.scripts.OnClick, broken, "LeftButton")
+check(okClick, "an erroring button does not raise through the bar")
+check(P.brokerErrors["BrokenMinimapButton"] ~= nil, "its error is recorded for /perch doctor")
+
+-- Late buttons, the Rescan button and the doctor report.
+fakeMinimapButton("LateMinimapButton", { icon = fakeIcon })
+check(mm["mm:LateMinimapButton"] == nil, "a button created after the scan is not seen yet")
+local rescan = findButton("Rescan minimap")
+check(rescan ~= nil, "the elements page has a Rescan minimap button")
+rescan.scripts.OnClick(rescan)
+check(mm["mm:LateMinimapButton"] ~= nil, "Rescan picks up late buttons")
+
+P.selectedElement = key
+P:RefreshOptions()
+check(not findCheckbox("Value"):IsEnabled(), "minimap buttons have no value option")
+check(findCheckbox("Icon"):IsEnabled() and findCheckbox("Label"):IsEnabled(), "icon and label options apply")
+
+Stub.ResetMessages()
+P:Doctor()
+check(table.concat(Stub.messages, "\n"):find("minimap buttons: 5 found", 1, true) ~= nil,
+  "doctor reports the minimap buttons it found")
+P.selectedElement = goldKey
+P:RefreshOptions()
+
 -- Without the subcategory API every page sits behind tabs in one canvas.
 local realSubcategory = Settings.RegisterCanvasLayoutSubcategory
 Settings.RegisterCanvasLayoutSubcategory = nil

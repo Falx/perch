@@ -38,12 +38,11 @@ function P:CallBrokerHandler(cell, key, ...)
   return ok
 end
 
-function P:CreateBrokerCell(name, obj)
+-- The visual parts every bar cell shares: a button with text, icon and highlight.
+function P:CreateCellBase()
   local cell = CreateFrame("Button", nil, self.bar)
-  cell.brokerName = name
-  cell.obj = obj
-  -- A Button only reports the left button by default; plugins (and the
-  -- built-ins) also want right-clicks.
+  -- A Button only reports the left button by default; plugins, minimap buttons
+  -- and the built-ins also want right- and middle-clicks.
   cell:RegisterForClicks("AnyUp")
 
   cell.text = cell:CreateFontString(nil, "OVERLAY")
@@ -55,6 +54,13 @@ function P:CreateBrokerCell(name, obj)
   cell.highlight = cell:CreateTexture(nil, "HIGHLIGHT")
   cell.highlight:SetAllPoints(cell)
   cell.highlight:SetColorTexture(1, 1, 1, 0.15)
+  return cell
+end
+
+function P:CreateBrokerCell(name, obj)
+  local cell = self:CreateCellBase()
+  cell.brokerName = name
+  cell.obj = obj
 
   -- LibDBIcon passes the display button as the first argument, and plugins
   -- (HidingBar, EnhanceQoL, ...) rely on that: they call frame methods on it.

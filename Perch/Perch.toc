@@ -18,6 +18,7 @@ Bar.lua
 Element.lua
 Command.lua
 Broker.lua
+Minimap.lua
 Format.lua
 Builtins.lua
 Media.lua

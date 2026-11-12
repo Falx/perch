@@ -152,10 +152,10 @@ function P:IsEnabled(key)
   if element and element.enabled ~= nil then
     return element.enabled ~= false
   end
-  -- Launcher objects are opt-in: the Forever LDB ecosystem is full of
-  -- icon-only minimap launchers that would otherwise flood the bar.
+  -- Launcher objects and minimap buttons are opt-in: the Forever LDB ecosystem
+  -- is full of icon-only minimap launchers that would otherwise flood the bar.
   local cell = self:GetCell(key)
-  if cell and cell.obj and cell.obj.type == "launcher" then
+  if cell and ((cell.obj and cell.obj.type == "launcher") or cell.isMinimap) then
     return false
   end
   return true
@@ -173,6 +173,8 @@ function P:SetElementEnabled(key, enabled)
       if not (InCombatLockdown and InCombatLockdown()) then
         cell:SetShown(enabled)
       end
+    elseif cell.isMinimap then
+      self:RefreshMinimapCell(cell)
     else
       -- Re-read the cell so an enabled element is shown again and a disabled
       -- one is hidden immediately.
@@ -211,6 +213,8 @@ function P:RefreshElement(key)
     if not (InCombatLockdown and InCombatLockdown()) then
       self:RefreshCommandCell(cell)
     end
+  elseif cell.isMinimap then
+    self:RefreshMinimapCell(cell)
   else
     self:UpdateBrokerCell(key)
   end
@@ -271,6 +275,9 @@ function P:ElementTitle(key)
   if cell and cell.isCommand and cell.command then
     return cell.command.name or key
   end
+  if cell and cell.isMinimap then
+    return cell.minimapName or key
+  end
   return key
 end
 
@@ -278,6 +285,9 @@ function P:ElementKind(key)
   local cell = self:GetCell(key)
   if cell and cell.isCommand then
     return "command"
+  end
+  if cell and cell.isMinimap then
+    return "minimap button"
   end
   local kind = cell and cell.obj and cell.obj.type
   if kind == "launcher" then
@@ -336,6 +346,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
       P:RequestLayout()
     end
     P:ScanBrokers()
+    P:ScanMinimapButtons()
     P:RequestLayout()
   elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
     if event == "PLAYER_REGEN_DISABLED" then

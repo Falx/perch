@@ -9,6 +9,17 @@ First working build.
 
 ### Added
 
+- **Minimap buttons as elements.** Buttons on the minimap that Perch does not
+  already list as an LDB launcher (custom addon buttons, LibDBIcon buttons with
+  no matching LDB object) show up in the Elements list as "minimap button".
+  They are off until ticked, then show their own icon, or a label (the cleaned
+  button name) or a custom label; the icon and label can be toggled
+  independently (there is no value). Mouse down/up, clicks of every button,
+  double-click, the mouse wheel and hover all reach the original button, with its
+  tooltip anchored to the bar. Blizzard's minimap buttons, oversized frames and
+  buttons that do nothing are skipped. Perch rescans every 10 seconds, at
+  login, and from a **Rescan minimap** button on the Elements page.
+
 - **Command editing on the Elements page:** an Add command button under the list,
   and for a selected command a name box, a macro box and a Remove button (two
   clicks to confirm). Renaming carries the command's element options and bar
@@ -64,6 +75,8 @@ First working build.
 
 ### Fixed
 
+- The poll compared the raw plugin text with the composed cell text, so any
+  element with a label or custom label was refreshed every second.
 - Number boxes looked empty: the Settings canvas is built before it has a size, so
   the client scrolled each box's text out of view (dragging in the box revealed
   it). The cursor is now reset to the start whenever text is set, and when the box

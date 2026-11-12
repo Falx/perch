@@ -115,7 +115,7 @@ function P:GetCell(key)
   if broker then
     return broker
   end
-  return self.commandCells and self.commandCells[key]
+  return (self.commandCells and self.commandCells[key]) or (self.minimapCells and self.minimapCells[key])
 end
 
 function P:AllKeys()
@@ -135,6 +135,11 @@ function P:AllKeys()
     end
   end
   for key in pairs(self.commandCells or {}) do
+    if not seen[key] then
+      extra[#extra + 1] = key
+    end
+  end
+  for key in pairs(self.minimapCells or {}) do
     if not seen[key] then
       extra[#extra + 1] = key
     end

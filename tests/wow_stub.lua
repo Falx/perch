@@ -293,13 +293,76 @@ local function newFrame(kind, name, parent)
     return fontString
   end
 
-  function frame:SetTexture() end
+  function frame:SetTexture(texture)
+    self.texture = texture
+    self.atlas = nil
+  end
+
+  function frame:GetTexture()
+    return self.texture
+  end
+
+  function frame:SetAtlas(atlas)
+    self.atlas = atlas
+  end
+
+  function frame:GetAtlas()
+    return self.atlas
+  end
 
   function frame:SetColorTexture() end
 
   function frame:SetVertexColor() end
 
-  function frame:SetTexCoord() end
+  function frame:SetTexCoord(...)
+    self.texCoord = { ... }
+  end
+
+  function frame:GetTexCoord()
+    local coord = self.texCoord or { 0, 0, 0, 1, 1, 0, 1, 1 }
+    return unpack(coord)
+  end
+
+  function frame:GetDrawLayer()
+    return self.drawLayer or "ARTWORK"
+  end
+
+  function frame:GetName()
+    return self.name
+  end
+
+  function frame:IsObjectType(objectType)
+    return tostring(self.kind):lower() == tostring(objectType):lower()
+  end
+
+  local REGION_KINDS = { texture = true, fontstring = true }
+
+  function frame:GetChildren()
+    local children = {}
+    for _, candidate in ipairs(Stub.frames) do
+      if candidate.parent == self and not REGION_KINDS[candidate.kind] then
+        children[#children + 1] = candidate
+      end
+    end
+    return unpack(children)
+  end
+
+  function frame:GetRegions()
+    local regions = {}
+    for _, candidate in ipairs(Stub.frames) do
+      if candidate.parent == self and REGION_KINDS[candidate.kind] then
+        regions[#regions + 1] = candidate
+      end
+    end
+    return unpack(regions)
+  end
+
+  function frame:Click(button)
+    local handler = self.scripts.OnClick
+    if handler then
+      handler(self, button or "LeftButton", false)
+    end
+  end
 
   function frame:SetFont(path, size)
     -- A path that does not resolve fails the way the client does.
@@ -448,7 +511,9 @@ local function newFrame(kind, name, parent)
     self.maxLetters = count
   end
 
-  function frame:EnableMouseWheel() end
+  function frame:EnableMouseWheel(enabled)
+    self.mouseWheelEnabled = enabled and true or false
+  end
 
   function frame:SetFocus()
     self.focused = true
@@ -508,7 +573,10 @@ local function newFrame(kind, name, parent)
     self.lines[#self.lines + 1] = text
   end
 
-  function frame:SetOwner() end
+  function frame:SetOwner(owner, anchor)
+    self.owner = owner
+    self.ownerAnchor = anchor
+  end
 
   function frame:ClearLines()
     self.lines = {}
@@ -526,7 +594,11 @@ local function newFrame(kind, name, parent)
 end
 
 function CreateFrame(frametype, name, parent)
-  return newFrame(frametype, name, parent)
+  local frame = newFrame(frametype, name, parent)
+  if name then
+    _G[name] = frame
+  end
+  return frame
 end
 
 function CreateFont(path)
@@ -538,6 +610,8 @@ end
 UIParent = newFrame("frame", "UIParent", nil)
 UIParent.width = 1920
 UIParent.height = 1080
+
+Minimap = newFrame("Frame", "Minimap", UIParent)
 
 local function fontObject()
   local fontString = newFrame("fontstring", nil, nil)

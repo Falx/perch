@@ -588,6 +588,9 @@ function P:ApplyAll()
   for _, cell in pairs(self.brokerElements or {}) do
     self:UpdateBrokerCell(cell.brokerName)
   end
+  for _, cell in pairs(self.minimapCells or {}) do
+    self:RefreshMinimapCell(cell)
+  end
   -- Command cells are protected; resizing them in combat is blocked.
   if not (InCombatLockdown and InCombatLockdown()) then
     for _, cell in pairs(self.commandCells or {}) do

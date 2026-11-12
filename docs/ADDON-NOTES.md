@@ -131,6 +131,19 @@ the FPS source now prefers `GetFPS` and falls back to `GetFramerate`.
 - `/perch doctor` now reports each command cell: shown/hidden, parent, click
   count (`PostClick`), and the macrotext/type it actually carries.
 
+### Minimap buttons (to verify in the client)
+
+- Discovery walks the children of `Minimap` (and `MinimapBackdrop`,
+  `MinimapCluster` if present): named `Button`/`CheckButton` frames up to 60px
+  with an `OnClick`/`OnMouseUp`/`OnMouseDown` script or a secure `type`.
+  `LibDBIcon10_*` buttons are skipped when their LDB object exists.
+- Clicks use `Button:Click(mouseButton)`; other input calls the button's own
+  script with the real button as `self`. Hover scripts that call
+  `GameTooltip:SetOwner(button, ...)` are redirected to the bar cell.
+- Open questions: whether dropdown menus opened by a forwarded click anchor to
+  the minimap button rather than the bar, and whether every addon's button
+  exposes its picture as a field or a plain texture region.
+
 ### Still to verify
 
 - Settings subpages (verified in client): `RegisterCanvasLayoutSubcategory` is

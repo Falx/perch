@@ -112,6 +112,15 @@ function P:Doctor()
     add("  rebuild pending (combat)")
   end
 
+  local minimapCount, minimapEnabled = 0, 0
+  for key in pairs(self.minimapCells or {}) do
+    minimapCount = minimapCount + 1
+    if self:IsEnabled(key) then
+      minimapEnabled = minimapEnabled + 1
+    end
+  end
+  add("minimap buttons: %d found (%d on the bar)", minimapCount, minimapEnabled)
+
   local failed = {}
   for name, err in pairs(self.brokerErrors or {}) do
     failed[#failed + 1] = string.format("%s: %s", name, tostring(err):gsub("\n", " | "))

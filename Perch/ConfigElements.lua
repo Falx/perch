@@ -94,7 +94,7 @@ end
 
 local function isBroker(key)
   local cell = P:GetCell(key)
-  return cell ~= nil and not cell.isCommand
+  return cell ~= nil and not cell.isCommand and not cell.isMinimap
 end
 
 P:RegisterPage({
@@ -305,6 +305,11 @@ P:RegisterPage({
       if P:AddCommand(name, DEFAULT_COMMAND_MACRO) and P:GetCell("cmd:" .. name) then
         P.selectedElement = "cmd:" .. name
       end
+      P:RefreshOptions()
+    end, 130)
+
+    UI.button(content, "Rescan minimap", 154, -64 - LIST_HEIGHT - 12, function()
+      P:ScanMinimapButtons()
       P:RefreshOptions()
     end, 130)
 

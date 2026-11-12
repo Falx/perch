@@ -120,10 +120,16 @@ end
 function P:PollBrokers()
   self:ScanBrokers()
 
+  -- Minimap buttons appear whenever an addon creates one; look again every 10s.
+  self.pollCount = (self.pollCount or 0) + 1
+  if self.pollCount % 10 == 0 then
+    self:ScanMinimapButtons()
+  end
+
   for _, cell in pairs(self.brokerElements or {}) do
     local object = cell.obj
     if object then
-      local text = self:BrokerText(object)
+      local text = self:ComposeText(cell.brokerName, object)
       if text ~= cell.lastText
         or object.icon ~= cell.lastIcon
         or safeTostring(object.value) ~= safeTostring(cell.lastValue)
