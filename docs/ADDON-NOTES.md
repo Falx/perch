@@ -151,6 +151,10 @@ the FPS source now prefers `GetFPS` and falls back to `GetFramerate`.
   click, twice (before and after). Some frames raise "Can't measure restricted
   regions" from `GetPoint`/`GetNumPoints`: the scan skips forbidden and protected
   frames and `pcall`s every frame it inspects.
+- Polestar's `Anim.Anchor` stores `menu.psAnchor = {point, button, relPoint, x, y}`
+  and its "offset" tween calls `SetPoint(psAnchor...)` every frame for the
+  fade-in, so a one-time re-anchor is undone. Moved frames are watched (OnUpdate)
+  while shown and re-anchored whenever they point at the button again.
 - FishFry's hover Snapshot is its own frame, placed from `owner:GetLeft/GetRight/
   GetTop/GetBottom` (see `FishFry/UI/Widgets.lua`, `PlaceTooltipBeforeShow`).
   Redirecting `GameTooltip:SetOwner` is not enough for such panels, so the cell

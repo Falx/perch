@@ -80,6 +80,10 @@ First working build.
 
 ### Fixed
 
+- Polestar's menu stayed on the minimap: its fade-in tween re-applies the anchor
+  it recorded (`psAnchor`, pointing at the real button) on every step, undoing a
+  one-time move. Frames moved to the bar cell are now watched while shown and
+  moved again whenever they point back at the button.
 - Right-clicking a minimap button raised "Can't measure restricted regions" and
   never ran the click: the frame scan measured every frame, and some refuse to be
   measured. Forbidden and protected frames are now skipped, every frame check is

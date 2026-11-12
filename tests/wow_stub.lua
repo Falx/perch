@@ -926,6 +926,20 @@ function Stub.Tick()
   end
 end
 
+-- Runs every OnUpdate script once, like one rendered frame.
+function Stub.Update(elapsed)
+  local frames = {}
+  for _, frame in ipairs(Stub.frames) do
+    frames[#frames + 1] = frame
+  end
+  for _, frame in ipairs(frames) do
+    local handler = frame.scripts and frame.scripts.OnUpdate
+    if handler then
+      handler(frame, elapsed or 0.016)
+    end
+  end
+end
+
 function Stub.ResetMessages()
   Stub.messages = {}
 end

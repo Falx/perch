@@ -1284,6 +1284,41 @@ menuFrame:Hide()
 menuCell.scripts.OnClick(menuCell, "RightButton")
 equal(relativeOf(menuFrame), menuCell, "reopening the menu keeps it on the bar")
 
+-- A menu that animates and re-applies its recorded anchor (the real button) on
+-- every step, as Polestar's does, must still end up on the bar.
+local animating = 0
+local animator = CreateFrame("Frame", "MenuAnimator", UIParent)
+animator:SetScript("OnUpdate", function()
+  if animating > 0 then
+    animating = animating - 1
+    menuFrame:ClearAllPoints()
+    menuFrame:SetPoint("TOPRIGHT", menuButton, "BOTTOMLEFT", 4, 4)
+  end
+end)
+menuFrame:Hide()
+menuButton:SetScript("OnClick", function(self, mouse)
+  if mouse == "RightButton" then
+    menuFrame:ClearAllPoints()
+    menuFrame:SetPoint("TOPRIGHT", self, "BOTTOMLEFT", 4, 4)
+    menuFrame:Show()
+    animating = 3
+  end
+end)
+menuCell.scripts.OnClick(menuCell, "RightButton")
+equal(relativeOf(menuFrame), menuCell, "the menu is on the bar right after the click")
+for _ = 1, 5 do
+  Stub.Update()
+end
+equal(animating, 0, "the menu's animation ran to its end")
+equal(relativeOf(menuFrame), menuCell, "the menu is still on the bar after its animation re-anchored it")
+menuFrame:Hide()
+Stub.Update()
+menuFrame:ClearAllPoints()
+menuFrame:SetPoint("TOPRIGHT", menuButton, "BOTTOMLEFT", 4, 4)
+menuFrame:Show()
+Stub.Update()
+equal(relativeOf(menuFrame), menuButton, "a hidden menu is no longer watched")
+
 -- Frames that refuse to be measured must not break the click or the move.
 local restricted = CreateFrame("Frame", "RestrictedNeighbour", UIParent)
 restricted.restricted = true

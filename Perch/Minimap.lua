@@ -425,6 +425,38 @@ local function anchorToCell(frame, button, cell)
   end)
 end
 
+-- Menu code often animates its window and re-applies the anchor it recorded (the
+-- real button) on every step, which would undo the move a frame later. Moved
+-- frames are watched while shown, and moved again whenever they point back at
+-- the button.
+local watcher = CreateFrame("Frame")
+local watched, watchedCount = {}, 0
+
+local function watchStep()
+  for frame, info in pairs(watched) do
+    if not frame:IsShown() then
+      watched[frame] = nil
+      watchedCount = watchedCount - 1
+    else
+      local ok, anchored = pcall(frameAnchoredTo, frame, info.button)
+      if ok and anchored then
+        anchorToCell(frame, info.button, info.cell)
+      end
+    end
+  end
+  if watchedCount <= 0 then
+    watcher:SetScript("OnUpdate", nil)
+  end
+end
+
+local function watchFrame(frame, button, cell)
+  if not watched[frame] then
+    watchedCount = watchedCount + 1
+  end
+  watched[frame] = { button = button, cell = cell }
+  watcher:SetScript("OnUpdate", watchStep)
+end
+
 local function withReanchor(cell, fn)
   local button = cell.sourceButton
   -- Protected frames cannot be re-anchored in combat.
@@ -441,6 +473,7 @@ local function withReanchor(cell, fn)
     for _, frame in ipairs(framesAnchoredTo(button, cell)) do
       if frame:IsShown() and before[frame] ~= true then
         anchorToCell(frame, button, cell)
+        watchFrame(frame, button, cell)
       end
     end
   end)
