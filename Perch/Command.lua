@@ -91,6 +91,7 @@ function P:RebuildCommands()
     cell:SetAttribute("macrotext", command.macrotext or "")
 
     cell.text = cell:CreateFontString(nil, "OVERLAY")
+    self:ApplyCellFont(cell)
     cell.icon = cell:CreateTexture(nil, "ARTWORK")
     cell.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     cell.highlight = cell:CreateTexture(nil, "HIGHLIGHT")

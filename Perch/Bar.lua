@@ -145,7 +145,10 @@ function P:RequestLayout()
   self.layoutPending = true
   C_Timer.After(0, function()
     P.layoutPending = false
-    P:Layout()
+    local ok, err = pcall(P.Layout, P)
+    if not ok then
+      P.layoutError = tostring(err)
+    end
   end)
 end
 

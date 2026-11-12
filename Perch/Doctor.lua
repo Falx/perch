@@ -52,6 +52,40 @@ function P:Doctor()
     add("LibDataBroker: MISSING")
   end
 
+  add("LDB callbacks hooked: %s", self.brokerCallbacksHooked and "yes" or "no")
+
+  local bar = self.bar
+  if bar then
+    local point, _, relativePoint, x, y = bar:GetPoint()
+    add("bar: %s %dx%d at %s/%s (%s, %s)",
+      bar:IsShown() and "shown" or "hidden",
+      math.floor((bar:GetWidth() or 0) + 0.5),
+      math.floor((bar:GetHeight() or 0) + 0.5),
+      tostring(point), tostring(relativePoint), tostring(x), tostring(y))
+  else
+    add("bar: MISSING")
+  end
+
+  local cellCount = 0
+  for _ in pairs(self.brokerElements or {}) do
+    cellCount = cellCount + 1
+  end
+  add("broker cells: %d (order %d, enabled %d)", cellCount, #self.db.order, #self:OrderedKeys())
+
+  local failed = {}
+  for name, err in pairs(self.brokerErrors or {}) do
+    failed[#failed + 1] = string.format("%s: %s", name, tostring(err):gsub("\n", " | "))
+  end
+  table.sort(failed)
+  add("broker errors: %d", #failed)
+  for _, line in ipairs(failed) do
+    add("  %s", line)
+  end
+
+  if self.layoutError then
+    add("layout error: %s", tostring(self.layoutError):gsub("\n", " | "))
+  end
+
   add("Settings API: %s", (Settings and Settings.RegisterVerticalLayoutCategory) and "ok" or "MISSING")
   add("  RegisterCanvasLayoutCategory: %s", probeTable("Settings", "RegisterCanvasLayoutCategory"))
   add("  RegisterAddOnCategory: %s", probeTable("Settings", "RegisterAddOnCategory"))
@@ -69,6 +103,7 @@ function P:Doctor()
   add("C_DateAndTime.GetCurrentCalendarTime: %s", probeTable("C_DateAndTime", "GetCurrentCalendarTime"))
   add("GetGameTime: %s", probeGlobal("GetGameTime"))
   add("GetFPS: %s", probeGlobal("GetFPS"))
+  add("GetFramerate: %s", probeGlobal("GetFramerate"))
   add("GetMoney: %s", probeGlobal("GetMoney"))
 
   add("font FRIZQT__: %s", probeFont("Fonts\\FRIZQT__.TTF"))

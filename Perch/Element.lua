@@ -3,12 +3,28 @@ P = _G.Perch
 
 local ICON_TEXT_PADDING = 4
 
+local function fontSignature(font)
+  return string.format("%s|%s|%s", tostring(font.name), tostring(font.size), tostring(font.outline))
+end
+
+-- The client raises "FontString:SetText(): Font not set" when text is assigned
+-- before a font exists, so every text write goes through this first.
+function P:ApplyCellFont(cell)
+  local font = self.db.bar.font
+  local signature = fontSignature(font)
+  if cell.fontSignature ~= signature then
+    cell.text:SetFont(font.name, font.size, font.outline or "")
+    cell.fontSignature = signature
+  end
+end
+
 function P:CreateBrokerCell(name, obj)
   local cell = CreateFrame("Button", nil, self.bar)
   cell.brokerName = name
   cell.obj = obj
 
   cell.text = cell:CreateFontString(nil, "OVERLAY")
+  self:ApplyCellFont(cell)
   cell.icon = cell:CreateTexture(nil, "ARTWORK")
   cell.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   cell.icon:Hide()
@@ -79,7 +95,9 @@ function P:BrokerText(obj)
   if text == nil then
     return ""
   end
-  return tostring(text)
+  -- A plugin is free to put anything in text/value; never let it break a cell.
+  local ok, rendered = pcall(tostring, text)
+  return ok and rendered or ""
 end
 
 function P:RefreshBrokerCell(cell, obj)
@@ -91,6 +109,8 @@ function P:RefreshBrokerCell(cell, obj)
   local hasIcon = (obj.icon ~= nil and barDB.showIcons ~= false) and true or false
 
   if cell.lastText ~= text then
+    -- Font first: SetText without a font is a hard error on 16001.
+    self:ApplyCellFont(cell)
     cell.text:SetText(text)
     cell.lastText = text
   end
@@ -120,7 +140,7 @@ function P:SizeCell(cell)
   local db = self.db.bar
   local font = db.font
 
-  cell.text:SetFont(font.name, font.size, font.outline or "")
+  self:ApplyCellFont(cell)
   if font.color then
     cell.text:SetTextColor(font.color[1] or 1, font.color[2] or 1, font.color[3] or 1, font.color[4] or 1)
   end

@@ -23,9 +23,21 @@ First working build.
 - `/perch doctor` diagnostics report.
 - Headless `luajit` test harness and `tools/package.sh`.
 
+### Fixed
+
+- 16001 raises `FontString:SetText(): Font not set` as a hard error. Cells now
+  apply their font before the first text write; previously the first broker cell
+  aborted the scan and the bar never rendered.
+- One failing data object can no longer abort the scan or the poll; failures are
+  reported per object by `/perch doctor`.
+- The poll ticker is created before the initial scan, so a scan failure cannot
+  leave the bar without updates.
+- FPS falls back to `GetFramerate` (`GetFPS` is absent on 16001).
+
 ### Known limitations
 
 - Element ordering is stored but has no drag-and-drop UI yet.
 - No per-element label/colour overrides yet.
 - No settings import/export yet.
-- Verified against the API stub only; first in-game pass pending.
+- Verified on 1.60.1 build 70888; tooltips, clicks, command cells, drag, combat
+  and UI-scale checks are still pending.

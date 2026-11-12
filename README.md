@@ -70,6 +70,17 @@ TOC order, so layout math, LDB discovery, saved variables and command routing ar
 covered without the client. Anything visual or client-specific still needs an
 in-game pass — see `/perch doctor`.
 
+On Windows, `scoop install luajit zip` plus Git Bash is enough to run both
+commands. A junction keeps the client pointed at the working copy, so edits go
+live after `/reload`:
+
+```powershell
+cmd /c mklink /J "<WoW>/_forever_/Interface/AddOns/Perch" "<repo>\Perch"
+```
+
+The stub raises on `FontString:SetText()` without a font, because 16001 treats
+that as a hard error. Do not weaken it.
+
 Design notes and the phase checklist live in [docs/PLAN.md](docs/PLAN.md).
 
 ## Scope

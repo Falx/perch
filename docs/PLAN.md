@@ -1,6 +1,7 @@
 # Perch — design plan
 
-**Status:** Phase 0 and most of Phase 1 implemented; first in-game pass pending
+**Status:** Phase 0 and Phase 1 implemented; first in-game pass done, re-test after
+the font fix pending (see `docs/ADDON-NOTES.md`)
 **Last updated:** 2026-11-12
 **Target client:** World of Warcraft: Forever, interface `16001`
 **Repo identity:** `Falx <thomasdupont100@gmail.com>` (repo-local git config)
@@ -176,7 +177,10 @@ background alpha, reset position, reset settings, doctor.
 - [x] All 8 built-in sources
 - [x] Command cells with `/perch cmd`
 - [x] Basic options frame
-- [ ] **First in-game pass: paste `/perch doctor`**
+- [x] **First in-game pass: `/perch doctor`** — 1.60.1/70888, Settings id 21,
+      `GetFPS` missing, LDB 21 objects
+- [x] Fix `FontString:SetText(): Font not set` (hard error on 16001)
+- [ ] Re-test the bar in the client after the font fix
 
 ### Phase 2 — configuration depth
 - [ ] Element ordering UI (up/down or drag)

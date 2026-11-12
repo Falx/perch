@@ -3,6 +3,11 @@ P = _G.Perch
 
 local LDB
 
+local function safeTostring(value)
+  local ok, text = pcall(tostring, value)
+  return ok and text or ""
+end
+
 function P.GetLDB()
   if LDB then
     return LDB
@@ -40,12 +45,24 @@ function P:InitBroker()
     end
   end
 
-  self:ScanBrokers()
-
+  -- Start the safety net before scanning: a broken plugin object must never be
+  -- able to abort InitBroker and leave the bar without a poller.
   if not self.pollTicker then
     self.pollTicker = C_Timer.NewTicker(1, function()
       P:PollBrokers()
     end)
+  end
+
+  self:ScanBrokers()
+end
+
+-- One bad data object must not stop the rest of the bar from working.
+function P:RecordBrokerError(name, err)
+  self.brokerErrors = self.brokerErrors or {}
+  name = tostring(name)
+  if not self.brokerErrors[name] then
+    self.brokerErrors[name] = tostring(err)
+    self:Print(string.format("broker error (%s): %s", name, tostring(err)))
   end
 end
 
@@ -57,7 +74,10 @@ function P:ScanBrokers()
   self.brokerElements = self.brokerElements or {}
   for name, object in ldb:DataObjectIterator() do
     if not self.brokerElements[name] then
-      self:RegisterBroker(name, object)
+      local ok, err = pcall(self.RegisterBroker, self, name, object)
+      if not ok then
+        self:RecordBrokerError(name, err)
+      end
     end
   end
 end
@@ -74,7 +94,11 @@ function P:RegisterBroker(name, object)
     return
   end
 
-  local cell = self:CreateBrokerCell(name, object)
+  local ok, cell = pcall(self.CreateBrokerCell, self, name, object)
+  if not ok then
+    self:RecordBrokerError(name, cell)
+    return
+  end
   self.brokerElements[name] = cell
   self:EnsureOrder(name)
   self:UpdateBrokerCell(name)
@@ -82,8 +106,12 @@ end
 
 function P:UpdateBrokerCell(name)
   local cell = self.brokerElements and self.brokerElements[name]
-  if cell then
-    self:RefreshBrokerCell(cell, cell.obj)
+  if not cell then
+    return
+  end
+  local ok, err = pcall(self.RefreshBrokerCell, self, cell, cell.obj)
+  if not ok then
+    self:RecordBrokerError(name, err)
   end
 end
 
@@ -98,10 +126,10 @@ function P:PollBrokers()
       local text = self:BrokerText(object)
       if text ~= cell.lastText
         or object.icon ~= cell.lastIcon
-        or tostring(object.value) ~= tostring(cell.lastValue)
+        or safeTostring(object.value) ~= safeTostring(cell.lastValue)
       then
         cell.lastValue = object.value
-        self:RefreshBrokerCell(cell, object)
+        self:UpdateBrokerCell(cell.brokerName)
       end
     end
   end

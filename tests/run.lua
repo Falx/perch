@@ -96,6 +96,18 @@ equal(bagsCell and bagsCell.text:GetText(), "9/16", "bag slots render")
 local durabilityCell = P.brokerElements["Perch_Durability"]
 equal(durabilityCell and durabilityCell.text:GetText(), "80%", "durability takes the lowest slot")
 
+-- 16001 raises "FontString:SetText(): Font not set" instead of drawing nothing.
+check(clockCell.text.fontPath ~= nil, "cell font is set before the first SetText")
+
+local fpsCell = P.brokerElements["Perch_FPS"]
+local savedGetFPS = GetFPS
+GetFPS = nil
+Stub.Tick()
+equal(fpsCell and fpsCell.text:GetText(), "60 fps", "fps falls back to GetFramerate")
+GetFPS = savedGetFPS
+Stub.Tick()
+equal(fpsCell and fpsCell.text:GetText(), "61 fps", "fps prefers GetFPS when present")
+
 --------------------------------------------------------------------------
 -- Update strategy
 --------------------------------------------------------------------------
@@ -137,6 +149,37 @@ equal(tooltipText, "custom tooltip", "plugin tooltip is used when provided")
 
 Stub.Tick()
 equal(scratchCell.text:GetText(), "two", "poll fallback keeps content stable")
+
+--------------------------------------------------------------------------
+-- Resilience
+--------------------------------------------------------------------------
+
+section("resilience")
+
+local realRefresh = P.RefreshBrokerCell
+P.RefreshBrokerCell = function(self, cell, obj)
+  if cell.brokerName == "Test_Explode" then
+    error("boom")
+  end
+  return realRefresh(self, cell, obj)
+end
+
+local exploding = ldb:NewDataObject("Test_Explode", {
+  type = "data source",
+  text = "explode",
+})
+local survivor = ldb:NewDataObject("Test_Survivor", {
+  type = "data source",
+  text = "survivor",
+})
+
+P.RefreshBrokerCell = realRefresh
+
+check(exploding ~= nil, "failing data object still registers with LDB")
+check(P.brokerElements["Test_Explode"] ~= nil, "a cell is kept for the failing object")
+check(P.brokerErrors["Test_Explode"] ~= nil, "the failure is recorded for /perch doctor")
+check(P.brokerElements["Test_Survivor"] ~= nil, "later objects still register after a failure")
+equal(P.brokerElements["Test_Survivor"].text:GetText(), "survivor", "later objects still render")
 
 --------------------------------------------------------------------------
 -- Commands
@@ -192,6 +235,9 @@ local report = table.concat(Stub.messages, "\n")
 check(report:find("Perch 0.1.0", 1, true) ~= nil, "doctor reports the version")
 check(report:find("LibDataBroker: ok", 1, true) ~= nil, "doctor reports LDB")
 check(report:find("client 1.60.1", 1, true) ~= nil, "doctor reports the client build")
+check(report:find("broker cells:", 1, true) ~= nil, "doctor reports the broker cell count")
+check(report:find("broker errors:", 1, true) ~= nil, "doctor reports broker failures")
+check(report:find("bar: shown", 1, true) ~= nil, "doctor reports the bar state")
 
 Stub.ResetMessages()
 SlashCmdList["PERCH"]("dump")

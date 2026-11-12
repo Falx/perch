@@ -82,10 +82,16 @@ local function updateGold()
 end
 
 local function updateFPS()
-  if not GetFPS then
+  -- GetFPS is absent on 16001; GetFramerate is the vanilla-era equivalent.
+  local getter = GetFPS or GetFramerate
+  if not getter then
     return
   end
-  P:SetBuiltinText("Perch_FPS", string.format("%d fps", math.floor(GetFPS() + 0.5)), GetFPS())
+  local fps = getter()
+  if not fps then
+    return
+  end
+  P:SetBuiltinText("Perch_FPS", string.format("%d fps", math.floor(fps + 0.5)), fps)
 end
 
 local function updateMemory()

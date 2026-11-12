@@ -259,10 +259,15 @@ local function newFrame(kind, name, parent)
     return newFrame("texture", nil, self)
   end
 
-  function frame:CreateFontString()
-    local fontString = newFrame("fontstring", nil, self)
+  function frame:CreateFontString(name, layer, template)
+    local fontString = newFrame("fontstring", name, self)
     fontString.text = ""
     fontString.fontSize = 12
+    if template then
+      -- Templates such as GameFontNormal carry their own font, so SetText is
+      -- legal straight away. Only bare font strings need an explicit SetFont.
+      fontString.fontPath = "Fonts\\FRIZQT__.TTF"
+    end
     return fontString
   end
 
@@ -287,6 +292,11 @@ local function newFrame(kind, name, parent)
   function frame:SetFontObject() end
 
   function frame:SetText(text)
+    -- 16001 raises a real error here, not a warning: text before font kills the
+    -- caller. Keep the stub strict so this can never regress.
+    if self.kind == "fontstring" and not self.fontPath then
+      error("FontString:SetText(): Font not set", 2)
+    end
     self.text = text
     self.setTextCount = (self.setTextCount or 0) + 1
   end
@@ -533,6 +543,10 @@ end
 
 function GetFPS()
   return 61.2
+end
+
+function GetFramerate()
+  return 60.4
 end
 
 function GetGameTime()
