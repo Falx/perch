@@ -148,7 +148,7 @@ P:RegisterPage({
       if key then
         P:SetElementOption(key, "label", text)
       end
-    end, true))
+    end, { live = true, maxLetters = 24 }))
     P.elementLabelBox = labelBox
     UI.label(content, "Shown when Label is ticked. Empty uses the default.", DETAIL_X, -262, "GameFontDisableSmall")
 

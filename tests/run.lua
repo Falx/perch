@@ -472,6 +472,50 @@ heightSlider.input.box:SetText("22")
 heightSlider.input.box.scripts.OnEnterPressed(heightSlider.input.box)
 equal(PerchDB.bar.height, 22, "height restored")
 
+-- Number boxes only take numbers, follow the slider live, and step on arrow/wheel.
+local heightBox = heightSlider.input.box
+heightBox:SetText("1a2b")
+heightBox.scripts.OnTextChanged(heightBox, true)
+equal(heightBox:GetText(), "12", "letters are stripped from a number box")
+equal(PerchDB.bar.height, 22, "an out-of-range partial value is not applied while typing")
+heightBox:SetText("1.5")
+heightBox.scripts.OnTextChanged(heightBox, true)
+equal(heightBox:GetText(), "15", "an integer box rejects a decimal point")
+equal(PerchDB.bar.height, 15, "a valid in-range value applies while typing")
+equal(heightSlider:GetValue(), 15, "the slider thumb follows the typed value")
+heightBox:SetText("12")
+heightBox.scripts.OnEnterPressed(heightBox)
+equal(PerchDB.bar.height, 14, "Enter clamps a too-small value to the minimum")
+
+heightBox.scripts.OnArrowPressed(heightBox, "UP")
+equal(PerchDB.bar.height, 15, "Up arrow raises the value by one step")
+heightBox.scripts.OnArrowPressed(heightBox, "DOWN")
+equal(PerchDB.bar.height, 14, "Down arrow lowers the value by one step")
+heightBox.scripts.OnArrowPressed(heightBox, "DOWN")
+equal(PerchDB.bar.height, 14, "arrow keys stop at the minimum")
+heightSlider.scripts.OnMouseWheel(heightSlider, 1)
+equal(PerchDB.bar.height, 15, "mouse wheel up raises the value")
+heightSlider.scripts.OnMouseWheel(heightSlider, -1)
+equal(PerchDB.bar.height, 14, "mouse wheel down lowers the value")
+heightBox:SetText("22")
+heightBox.scripts.OnEnterPressed(heightBox)
+equal(PerchDB.bar.height, 22, "height restored again")
+
+local scaleSlider
+for _, widget in ipairs(P.optionWidgets) do
+  if widget.label and widget.input and widget.label:GetText() == "Scale" then
+    scaleSlider = widget
+  end
+end
+local scaleBox = scaleSlider.input.box
+scaleBox:SetText("-1.2.5x")
+scaleBox.scripts.OnTextChanged(scaleBox, true)
+equal(scaleBox:GetText(), "1.25", "a decimal box keeps one decimal point and drops other characters")
+equal(PerchDB.bar.scale, 1.25, "decimal values apply while typing")
+scaleBox:SetText("1")
+scaleBox.scripts.OnEnterPressed(scaleBox)
+equal(PerchDB.bar.scale, 1, "scale restored")
+
 -- Per-element options and ordering.
 local goldKey = "Perch_Gold"
 local plainValue = P:BrokerText(goldCell.obj)

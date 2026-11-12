@@ -13,8 +13,10 @@ First working build.
   greyed) with a detail panel: show, icon, label and value checkboxes, a custom
   label input, and Move up / Move down buttons. Commands get label and icon
   options; the Value option applies to data sources only.
-- Appearance sliders have a typeable number box (clamped to the slider range and
-  snapped to its step); the font selector moved to Appearance.
+- Appearance sliders have a number box that only accepts numbers (decimals only
+  where the step is fractional). It follows the slider while you type, steps with
+  Up/Down and the mouse wheel, and clamps and snaps to the slider's range on
+  Enter. The font selector moved to Appearance.
 - Settings are split into subpages: **General** (six toggles including
   click-through, plus a font selector), **Appearance** and **Elements**, under a
   **Perch** landing page. Tabs are used when the client lacks the subcategory API.

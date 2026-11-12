@@ -37,13 +37,35 @@ function UI.checkbox(parent, text, x, y, getter, setter)
   return widget
 end
 
+-- Keeps digits (and one decimal point when allowed); everything else is typed
+-- text that cannot be a number.
+local function numericFilter(allowDecimal)
+  return function(text)
+    local kept = text:gsub(allowDecimal and "[^%d%.]" or "[^%d]", "")
+    if allowDecimal then
+      local first = kept:find(".", 1, true)
+      if first then
+        local rest = kept:sub(first + 1):gsub("%.", "")
+        kept = kept:sub(1, first) .. rest
+      end
+    end
+    return kept
+  end
+end
+
 -- Single-line text input. Non-live inputs apply on Enter or when focus is lost
 -- (Escape reverts); live inputs apply on every keystroke. setter(text).
-function UI.editbox(parent, x, y, width, getter, setter, live)
+-- options: live, maxLetters, filter(text) -> text (typed input only),
+-- onChange(text) (after each typed change, even for non-live inputs).
+function UI.editbox(parent, x, y, width, getter, setter, options)
+  options = options or {}
   local box = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
   box:SetSize(width, 20)
   box:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
   box:SetAutoFocus(false)
+  if options.maxLetters then
+    box:SetMaxLetters(options.maxLetters)
+  end
 
   local widget = { box = box }
 
@@ -67,12 +89,27 @@ function UI.editbox(parent, x, y, width, getter, setter, live)
     widget.cancelled = false
     widget.refresh()
   end)
-  if live then
-    box:SetScript("OnTextChanged", function(self, userInput)
-      if userInput then
-        setter(self:GetText())
+
+  box:SetScript("OnTextChanged", function(self, userInput)
+    if not userInput then
+      return
+    end
+    if options.filter then
+      local text = self:GetText()
+      local filtered = options.filter(text)
+      if filtered ~= text then
+        self:SetText(filtered)
       end
-    end)
+    end
+    if options.onChange then
+      options.onChange(self:GetText())
+    end
+    if options.live then
+      setter(self:GetText())
+    end
+  end)
+
+  if options.live then
     box:SetScript("OnEnterPressed", function(self)
       self:ClearFocus()
     end)
@@ -91,6 +128,9 @@ function UI.editbox(parent, x, y, width, getter, setter, live)
   return widget
 end
 
+-- Slider with a number box. The box only takes numbers, follows the slider while
+-- you type (inside the range), and snaps/clamps when you press Enter. The mouse
+-- wheel over the slider and Up/Down in the box step by one slider step.
 function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, format)
   local widget = CreateFrame("Slider", nil, parent)
   widget:SetOrientation("HORIZONTAL")
@@ -99,6 +139,7 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
   widget:SetMinMaxValues(minimum, maximum)
   widget:SetValueStep(step)
   widget:SetObeyStepOnDrag(true)
+  widget:EnableMouseWheel(true)
 
   widget.label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   widget.label:SetPoint("BOTTOMLEFT", widget, "TOPLEFT", 0, 2)
@@ -106,8 +147,19 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
 
   local pattern = format or "%.2f"
 
-  -- Typed values are clamped and snapped to the slider's step.
-  local input = UI.editbox(parent, x + 296, y + 2, 56, function()
+  local function snap(value)
+    value = math.floor(value / step + 0.5) * step
+    return math.max(minimum, math.min(maximum, value))
+  end
+
+  local function moveThumb(value)
+    widget.updating = true
+    widget:SetValue(value)
+    widget.updating = false
+  end
+
+  local input
+  input = UI.editbox(parent, x + 296, y + 2, 56, function()
     return string.format(pattern, getter())
   end, function(typed)
     local number = tonumber(typed)
@@ -115,11 +167,22 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
       widget.refresh()
       return
     end
-    number = math.floor(number / step + 0.5) * step
-    number = math.max(minimum, math.min(maximum, number))
-    setter(number)
+    local value = snap(number)
+    setter(value)
     widget.refresh()
-  end)
+  end, {
+    maxLetters = 7,
+    filter = numericFilter(step < 1),
+    -- Apply as soon as the typed number is a valid in-range value.
+    onChange = function(typed)
+      local number = tonumber(typed)
+      if number and number >= minimum and number <= maximum then
+        local value = snap(number)
+        moveThumb(value)
+        setter(value)
+      end
+    end,
+  })
   widget.input = input
 
   local function display(value)
@@ -128,20 +191,38 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
     end
   end
 
+  local function nudge(direction)
+    local value = snap(getter() + direction * step)
+    setter(value)
+    widget.refresh()
+    -- Keep the typed box in step even while it has focus.
+    input.box:SetText(string.format(pattern, value))
+  end
+
   widget:SetScript("OnValueChanged", function(self, value)
     if self.updating then
       return
     end
-    value = math.floor(value / step + 0.5) * step
+    value = snap(value)
     setter(value)
     display(value)
   end)
 
+  widget:SetScript("OnMouseWheel", function(_, delta)
+    nudge(delta > 0 and 1 or -1)
+  end)
+
+  input.box:SetScript("OnArrowPressed", function(_, key)
+    if key == "UP" then
+      nudge(1)
+    elseif key == "DOWN" then
+      nudge(-1)
+    end
+  end)
+
   widget.refresh = function()
     local value = getter()
-    widget.updating = true
-    widget:SetValue(value)
-    widget.updating = false
+    moveThumb(value)
     display(value)
   end
 

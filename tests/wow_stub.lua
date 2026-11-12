@@ -415,6 +415,12 @@ local function newFrame(kind, name, parent)
 
   function frame:SetAutoFocus() end
 
+  function frame:SetMaxLetters(count)
+    self.maxLetters = count
+  end
+
+  function frame:EnableMouseWheel() end
+
   function frame:SetFocus()
     self.focused = true
   end
