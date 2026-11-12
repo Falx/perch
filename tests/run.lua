@@ -525,6 +525,53 @@ heightBox:SetText("22")
 heightBox.scripts.OnEnterPressed(heightBox)
 equal(PerchDB.bar.height, 22, "height restored again")
 
+-- Every Appearance slider has a Default button that resets it.
+local defaultFor = {
+  ["Scale"] = P.defaults.bar.scale,
+  ["Font size"] = P.defaults.bar.font.size,
+  ["Bar height"] = P.defaults.bar.height,
+  ["Spacing"] = P.defaults.bar.spacing,
+  ["Icon size"] = P.defaults.bar.iconSize,
+  ["Background alpha"] = P.defaults.bar.background.color[4],
+}
+local sliderCount = 0
+for _, widget in ipairs(P.optionWidgets) do
+  if widget.input and widget.label and defaultFor[widget.label:GetText()] ~= nil then
+    sliderCount = sliderCount + 1
+    check(widget.defaultButton ~= nil, widget.label:GetText() .. " slider has a Default button")
+    equal(widget.defaultButton.text, "Default", widget.label:GetText() .. " reset button is labelled Default")
+  end
+end
+check(sliderCount >= 6, "all six Appearance sliders were checked")
+
+local defaultHeight = heightSlider.defaultButton
+check(not defaultHeight:IsEnabled(), "Default is disabled while the value already is the default")
+heightBox:SetText("30")
+heightBox.scripts.OnEnterPressed(heightBox)
+equal(PerchDB.bar.height, 30, "height changed")
+check(defaultHeight:IsEnabled(), "Default is enabled once the value differs")
+defaultHeight.scripts.OnClick(defaultHeight)
+equal(PerchDB.bar.height, P.defaults.bar.height, "Default resets the value")
+equal(heightBox:GetText(), tostring(P.defaults.bar.height), "Default updates the number box")
+equal(heightSlider:GetValue(), P.defaults.bar.height, "Default moves the slider")
+check(not defaultHeight:IsEnabled(), "Default is disabled again after resetting")
+
+heightBox:SetText("25")
+heightBox.scripts.OnTextChanged(heightBox, true)
+check(defaultHeight:IsEnabled(), "typing a different value enables Default live")
+defaultHeight.scripts.OnClick(defaultHeight)
+
+local alphaSlider
+for _, widget in ipairs(P.optionWidgets) do
+  if widget.label and widget.input and widget.label:GetText() == "Background alpha" then
+    alphaSlider = widget
+  end
+end
+PerchDB.bar.background.color[4] = 0.9
+alphaSlider.refresh()
+alphaSlider.defaultButton.scripts.OnClick(alphaSlider.defaultButton)
+equal(PerchDB.bar.background.color[4], P.defaults.bar.background.color[4], "alpha Default restores the shipped alpha")
+
 local scaleSlider
 for _, widget in ipairs(P.optionWidgets) do
   if widget.label and widget.input and widget.label:GetText() == "Scale" then

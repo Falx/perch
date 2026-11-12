@@ -20,7 +20,9 @@ First working build.
 - Appearance sliders have a number box that only accepts numbers (decimals only
   where the step is fractional). It follows the slider while you type, steps with
   Up/Down and the mouse wheel, and clamps and snaps to the slider's range on
-  Enter. The font selector moved to Appearance.
+  Enter. A **Default** button after the box resets the value to the shipped
+  default and greys out while the value already is the default. The font
+  selector moved to Appearance.
 - Settings are split into subpages: **General** (six toggles including
   click-through, plus a font selector), **Appearance** and **Elements**, under a
   **Perch** landing page. Tabs are used when the client lacks the subcategory API.

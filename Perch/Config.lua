@@ -155,7 +155,7 @@ end
 -- Slider with a number box. The box only takes numbers, follows the slider while
 -- you type (inside the range), and snaps/clamps when you press Enter. The mouse
 -- wheel over the slider and Up/Down in the box step by one slider step.
-function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, format)
+function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, format, default)
   local widget = CreateFrame("Slider", nil, parent)
   widget:SetOrientation("HORIZONTAL")
   widget:SetSize(280, 16)
@@ -196,6 +196,9 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
     widget.updating = false
   end
 
+  -- Assigned once the optional Default button exists (typing syncs it too).
+  local syncDefault = function() end
+
   local input
   input = UI.editbox(parent, x + 296, y + 2, 56, function()
     return string.format(pattern, getter())
@@ -218,12 +221,34 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
         local value = snap(number)
         moveThumb(value)
         setter(value)
+        syncDefault(value)
       end
     end,
   })
   widget.input = input
 
+  -- "Default" resets the value to its default; it is greyed out while the value
+  -- already is the default. default may be a value or a function returning one.
+  if default ~= nil then
+    local function defaultValue()
+      if type(default) == "function" then
+        return default()
+      end
+      return default
+    end
+
+    widget.defaultButton = UI.button(parent, "Default", x + 296 + 64, y + 3, function()
+      setter(snap(defaultValue()))
+      widget.refresh()
+    end, 60)
+
+    syncDefault = function(value)
+      widget.defaultButton:SetEnabled(math.abs(value - defaultValue()) > step / 2)
+    end
+  end
+
   local function display(value)
+    syncDefault(value)
     if not input.box:HasFocus() then
       input.setText(string.format(pattern, value))
     end
@@ -235,6 +260,7 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
     widget.refresh()
     -- Keep the typed box in step even while it has focus.
     input.box:SetText(string.format(pattern, value))
+    syncDefault(value)
   end
 
   widget:SetScript("OnValueChanged", function(self, value)

@@ -84,6 +84,28 @@ local SLIDERS = {
   },
 }
 
+-- Reset targets for the "Default" buttons, straight from the shipped defaults.
+local DEFAULTS = {
+  ["Scale"] = function()
+    return P.defaults.bar.scale
+  end,
+  ["Font size"] = function()
+    return P.defaults.bar.font.size
+  end,
+  ["Bar height"] = function()
+    return P.defaults.bar.height
+  end,
+  ["Spacing"] = function()
+    return P.defaults.bar.spacing
+  end,
+  ["Icon size"] = function()
+    return P.defaults.bar.iconSize
+  end,
+  ["Background alpha"] = function()
+    return P.defaults.bar.background.color[4]
+  end,
+}
+
 P:RegisterPage({
   id = "appearance",
   title = "Appearance",
@@ -110,7 +132,7 @@ P:RegisterPage({
       track(UI.slider(content, spec[1], 24, y, spec[2], spec[3], spec[4], spec[6], function(value)
         setter(value)
         P:ApplyAll()
-      end, spec[5]))
+      end, spec[5], DEFAULTS[spec[1]]))
       y = y - 48
     end
   end,
