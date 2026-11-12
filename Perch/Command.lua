@@ -111,7 +111,9 @@ function P:CreateCommandCell(command, key)
   cell.icon:SetTexture(command.icon or DEFAULT_COMMAND_ICON)
   cell.iconVisible = self.db.bar.showIcons ~= false
   cell.icon:SetShown(cell.iconVisible)
+  self:ApplyCellFont(cell)
   cell.text:SetText(command.name or "Command")
+  cell.lastText = command.name or "Command"
 
   cell:SetScript("OnEnter", function(frame)
     P:ShowCommandTooltip(frame)
@@ -134,6 +136,25 @@ function P:CreateCommandCell(command, key)
   return cell
 end
 
+-- Applies the per-element options (label, icon) to a command cell. Out of
+-- combat only: callers check, and SizeCell guards its own resize.
+function P:RefreshCommandCell(cell)
+  local command = cell.command
+  local key = cell.commandKey
+  local text = ""
+  if self:ElementOption(key, "showLabel") then
+    text = self:ElementOption(key, "label") or command.name or "Command"
+  end
+  self:ApplyCellFont(cell)
+  if cell.lastText ~= text then
+    cell.text:SetText(text)
+    cell.lastText = text
+  end
+  cell.iconVisible = (self.db.bar.showIcons ~= false and self:ElementOption(key, "showIcon")) and true or false
+  cell.icon:SetShown(cell.iconVisible)
+  self:SizeCell(cell)
+end
+
 function P:RebuildCommands()
   if inCombat() then
     self.commandRebuildPending = true
@@ -153,7 +174,7 @@ function P:RebuildCommands()
     if ok and cell then
       self.commandCells[key] = cell
       self:EnsureOrder(key)
-      self:SizeCell(cell)
+      self:RefreshCommandCell(cell)
     else
       self:RecordBrokerError(key, cell)
     end

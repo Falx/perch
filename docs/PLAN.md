@@ -200,7 +200,7 @@ without slash commands.
 - [x] Vendored LibStub, CallbackHandler-1.0, LibDataBroker-1.1
 - [x] `Perch.toc` with `## Interface: 16001`
 - [x] `tools/package.sh`
-- [x] `luajit` harness with 129 assertions
+- [x] `luajit` harness with 171 assertions
 - [x] `/perch doctor`
 
 ### Phase 1 — usable bar — DONE (pending in-game verification)
@@ -224,7 +224,7 @@ without slash commands.
 ### Phase 2 — configuration depth
 Settings redesign, in four steps (each ends with gates, a commit and an in-game check):
 - [x] 1. Subpages framework, General (six toggles + font selector), LSM embedded
-- [ ] 2. Elements page: list + detail panel (show/icon/label/value/custom label), order buttons
+- [x] 2. Elements page: list + detail panel (show/icon/label/value/custom label), order buttons
 - [ ] 3. Command add/edit/remove (label + macro; icon selector deferred)
 - [ ] 4. Appearance: alignment (top left/center/right), colours, texture, solid
       border, drawn end caps (disabled with a textured background)

@@ -111,6 +111,37 @@ function P:BrokerText(obj)
   return ok and rendered or ""
 end
 
+-- What a cell shows: the plugin's value, optionally prefixed by a label. The
+-- label is the custom one if set, else the plugin's own label, else its name.
+function P:DisplayLabel(key, obj)
+  local custom = self:ElementOption(key, "label")
+  if custom and custom ~= "" then
+    return custom
+  end
+  local label = obj and obj.label
+  if type(label) == "string" and label ~= "" then
+    return label
+  end
+  return key
+end
+
+function P:ComposeText(key, obj)
+  local value = self:BrokerText(obj)
+  local showValue = self:ElementOption(key, "showValue")
+  local showLabel = self:ElementOption(key, "showLabel")
+  if showLabel then
+    local label = self:DisplayLabel(key, obj)
+    if showValue and value ~= "" then
+      return label .. ": " .. value
+    end
+    return label
+  end
+  if showValue then
+    return value
+  end
+  return ""
+end
+
 function P:RefreshBrokerCell(cell, obj)
   if not cell then
     return
@@ -122,8 +153,9 @@ function P:RefreshBrokerCell(cell, obj)
     return
   end
   local barDB = self.db.bar
-  local text = self:BrokerText(obj)
-  local hasIcon = (obj.icon ~= nil and barDB.showIcons ~= false) and true or false
+  local text = self:ComposeText(cell.brokerName, obj)
+  local hasIcon = (obj.icon ~= nil and barDB.showIcons ~= false
+    and self:ElementOption(cell.brokerName, "showIcon")) and true or false
 
   if cell.lastText ~= text then
     -- Font first: SetText without a font is a hard error on 16001.

@@ -446,7 +446,7 @@ function P:ApplyAll()
   -- Command cells are protected; resizing them in combat is blocked.
   if not (InCombatLockdown and InCombatLockdown()) then
     for _, cell in pairs(self.commandCells or {}) do
-      self:SizeCell(cell)
+      self:RefreshCommandCell(cell)
     end
   end
   self:RequestLayout()

@@ -472,6 +472,112 @@ heightSlider.input.box:SetText("22")
 heightSlider.input.box.scripts.OnEnterPressed(heightSlider.input.box)
 equal(PerchDB.bar.height, 22, "height restored")
 
+-- Per-element options and ordering.
+local goldKey = "Perch_Gold"
+local plainValue = P:BrokerText(goldCell.obj)
+equal(P:ElementOption(goldKey, "showIcon"), true, "icons default on for broker elements")
+equal(P:ElementOption(goldKey, "showValue"), true, "values default on for broker elements")
+equal(P:ElementOption(goldKey, "showLabel"), false, "labels default off for broker elements")
+equal(P:ElementOption("cmd:Reload", "showLabel"), true, "labels default on for commands")
+equal(goldCell.text:GetText(), plainValue, "default broker text is just the value")
+
+P:SetElementOption(goldKey, "showLabel", true)
+equal(goldCell.text:GetText(), "Gold: " .. plainValue, "label option prefixes the value")
+P:SetElementOption(goldKey, "showValue", false)
+equal(goldCell.text:GetText(), "Gold", "label alone when the value is off")
+P:SetElementOption(goldKey, "label", "Money")
+equal(goldCell.text:GetText(), "Money", "custom label replaces the plugin label")
+P:SetElementOption(goldKey, "label", "   ")
+equal(goldCell.text:GetText(), "Gold", "a blank custom label falls back to the default")
+P:SetElementOption(goldKey, "showLabel", false)
+check(goldCell.text:GetText() == "" , "nothing to show when label and value are both off")
+P:SetElementOption(goldKey, "showValue", true)
+equal(goldCell.text:GetText(), plainValue, "value restored")
+
+P:SetElementOption(goldKey, "showIcon", false)
+check(not goldCell.icon:IsShown(), "icon option hides the icon")
+P:SetElementOption(goldKey, "showIcon", true)
+check(goldCell.icon:IsShown(), "icon option shows the icon again")
+
+local reloadCell = P.commandCells["cmd:Reload"]
+equal(reloadCell.text:GetText(), "Reload", "command cell shows its name by default")
+P:SetElementOption("cmd:Reload", "showLabel", false)
+equal(reloadCell.text:GetText(), "", "command label can be turned off")
+P:SetElementOption("cmd:Reload", "label", "RL")
+P:SetElementOption("cmd:Reload", "showLabel", true)
+equal(reloadCell.text:GetText(), "RL", "command shows its custom label")
+P:SetElementOption("cmd:Reload", "label", "")
+
+local orderBefore = P:AllKeys()
+local firstKey, secondKey = orderBefore[1], orderBefore[2]
+check(not P:MoveElement(firstKey, -1), "the first element cannot move up")
+check(not P:MoveElement(orderBefore[#orderBefore], 1), "the last element cannot move down")
+PerchDB.order[#PerchDB.order + 1] = "Ghost_Plugin"
+check(P:MoveElement(firstKey, 1), "an element can move down")
+equal(P:AllKeys()[1], secondKey, "moving down swaps with the next element")
+equal(P:AllKeys()[2], firstKey, "the moved element takes the next place")
+check(tContains(PerchDB.order, "Ghost_Plugin"), "order keeps entries for plugins that are not loaded")
+check(P:MoveElement(firstKey, -1), "an element can move back up")
+equal(P:AllKeys()[1], firstKey, "order restored")
+
+-- Elements page: list, selection and detail options.
+local listWidget
+for _, widget in ipairs(P.optionWidgets) do
+  if widget.rows and widget.child then
+    listWidget = widget
+  end
+end
+P:RefreshOptions()
+local shownRows = 0
+for _, row in ipairs(listWidget.rows) do
+  if row:IsShown() then
+    shownRows = shownRows + 1
+  end
+end
+equal(shownRows, #P:AllKeys(), "the element list has one row per element, hidden ones included")
+
+local goldRow, reloadRow
+for _, row in ipairs(listWidget.rows) do
+  if row.elementKey == goldKey then
+    goldRow = row
+  elseif row.elementKey == "cmd:Reload" then
+    reloadRow = row
+  end
+end
+goldRow.scripts.OnClick(goldRow)
+equal(P.selectedElement, goldKey, "clicking a row selects that element")
+check(goldRow.selection:IsShown(), "the selected row is highlighted")
+
+local labelFlag = findCheckbox("Label")
+local valueFlag = findCheckbox("Value")
+check(labelFlag ~= nil and valueFlag ~= nil, "elements page has Label and Value checkboxes")
+labelFlag:SetChecked(true)
+labelFlag.scripts.OnClick(labelFlag)
+equal(PerchDB.elements[goldKey].showLabel, true, "Label checkbox writes the selected element's option")
+labelFlag:SetChecked(false)
+labelFlag.scripts.OnClick(labelFlag)
+check(valueFlag:IsEnabled(), "Value checkbox is enabled for a data source")
+
+reloadRow.scripts.OnClick(reloadRow)
+check(not valueFlag:IsEnabled(), "Value checkbox is disabled for a command")
+
+goldRow.scripts.OnClick(goldRow)
+local box = P.elementLabelBox.box
+box:SetText("Money")
+box.scripts.OnTextChanged(box, true)
+equal(PerchDB.elements[goldKey].label, "Money", "typing in the label box stores the custom label live")
+box:SetText("")
+box.scripts.OnTextChanged(box, true)
+equal(PerchDB.elements[goldKey].label, nil, "clearing the label box removes the custom label")
+
+local showFlag = findCheckbox("Show on the bar")
+showFlag:SetChecked(false)
+showFlag.scripts.OnClick(showFlag)
+check(not P:IsEnabled(goldKey), "Show checkbox hides the element")
+showFlag:SetChecked(true)
+showFlag.scripts.OnClick(showFlag)
+check(P:IsEnabled(goldKey), "Show checkbox shows the element again")
+
 -- Without the subcategory API every page sits behind tabs in one canvas.
 local realSubcategory = Settings.RegisterCanvasLayoutSubcategory
 Settings.RegisterCanvasLayoutSubcategory = nil

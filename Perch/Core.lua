@@ -179,6 +179,97 @@ function P:SetElementEnabled(key, enabled)
   self:RefreshOptions()
 end
 
+-- Per-element display options. Anything not stored falls back to a default
+-- that keeps the old look: icon and value on, label off (commands: label on,
+-- because the label is all a command shows).
+function P:ElementOption(key, field)
+  local element = self.db.elements[key]
+  local value = element and element[field]
+  if value ~= nil then
+    return value
+  end
+  if field == "label" then
+    return nil
+  end
+  if field == "showLabel" then
+    local cell = self:GetCell(key)
+    return (cell and cell.isCommand) and true or false
+  end
+  return true
+end
+
+function P:RefreshElement(key)
+  local cell = self:GetCell(key)
+  if not cell then
+    return
+  end
+  if cell.isCommand then
+    if not (InCombatLockdown and InCombatLockdown()) then
+      self:RefreshCommandCell(cell)
+    end
+  else
+    self:UpdateBrokerCell(key)
+  end
+  self:RequestLayout()
+end
+
+function P:SetElementOption(key, field, value)
+  if not key then
+    return
+  end
+  if field == "label" then
+    value = tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if value == "" then
+      value = nil
+    end
+  end
+  self:ElementDB(key)[field] = value
+  self:RefreshElement(key)
+end
+
+-- Moves an element one place in the bar order. The order holds every element,
+-- hidden ones included, so the Elements list and the bar always agree.
+function P:MoveElement(key, delta)
+  local keys = self:AllKeys()
+  local index
+  for position, candidate in ipairs(keys) do
+    if candidate == key then
+      index = position
+      break
+    end
+  end
+  local target = index and index + delta
+  if not target or target < 1 or target > #keys then
+    return false
+  end
+  keys[index], keys[target] = keys[target], keys[index]
+
+  -- Keep entries for plugins that are not loaded right now.
+  local known = {}
+  for _, candidate in ipairs(keys) do
+    known[candidate] = true
+  end
+  for _, candidate in ipairs(self.db.order) do
+    if not known[candidate] then
+      keys[#keys + 1] = candidate
+      known[candidate] = true
+    end
+  end
+  self.db.order = keys
+  self:RequestLayout()
+  self:RefreshOptions()
+  return true
+end
+
+-- Display name for lists: commands show their name without the "cmd:" key prefix.
+function P:ElementTitle(key)
+  local cell = self:GetCell(key)
+  if cell and cell.isCommand and cell.command then
+    return cell.command.name or key
+  end
+  return key
+end
+
 function P:ElementKind(key)
   local cell = self:GetCell(key)
   if cell and cell.isCommand then

@@ -9,6 +9,12 @@ First working build.
 
 ### Added
 
+- **Elements page:** a scrolling list of every element in bar order (hidden ones
+  greyed) with a detail panel: show, icon, label and value checkboxes, a custom
+  label input, and Move up / Move down buttons. Commands get label and icon
+  options; the Value option applies to data sources only.
+- Appearance sliders have a typeable number box (clamped to the slider range and
+  snapped to its step); the font selector moved to Appearance.
 - Settings are split into subpages: **General** (six toggles including
   click-through, plus a font selector), **Appearance** and **Elements**, under a
   **Perch** landing page. Tabs are used when the client lacks the subcategory API.
