@@ -213,7 +213,6 @@ P:RegisterPage({
       Perch_Clock = "Clock settings",
       Perch_Coords = "Coordinate settings",
       Perch_Gold = "Gold settings",
-      Perch_Bags = "Bag settings",
       Perch_XP = "Experience settings",
     }
     local settingsHeader = UI.label(content, "", DETAIL_X, -350, "GameFontNormal")
@@ -254,17 +253,6 @@ P:RegisterPage({
       P:RefreshBuiltin("Perch_Coords")
     end)
     showWhen(isSelected("Perch_Coords"), decimals, { decimals.label, decimals.button })
-
-    -- Bags
-    local combined = UI.checkbox(content, "Show as one bag (free/total of all bags)", DETAIL_X, -376, function()
-      return P.db.settings.bagsCombined ~= false
-    end, function(value)
-      P.db.settings.bagsCombined = value
-      P:RefreshBuiltin("Perch_Bags")
-    end)
-    showWhen(isSelected("Perch_Bags"), combined, { combined, combined.label })
-    local bagsNote = note("Left-click opens your bags. Unticked, each bag shows its own free/total.", -406)
-    showWhen(isSelected("Perch_Bags"), { refresh = function() end }, { bagsNote })
 
     -- Gold and experience share one layout: a format preset, a custom template
     -- shown only for "Custom", and a reminder of the codes.

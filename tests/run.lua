@@ -798,14 +798,10 @@ Stub.rested = 0
 P:RefreshBuiltin("Perch_XP")
 
 local bagsCell = P.brokerElements["Perch_Bags"]
-equal(bagsCell.text:GetText(), "9/16", "bags show as one bag by default")
+equal(bagsCell.text:GetText(), "9/16", "bags show free/total")
 Stub.bagData[1] = { slots = 8, free = 3 }
 P:RefreshBuiltin("Perch_Bags")
-equal(bagsCell.text:GetText(), "12/24", "combined bags add up")
-PerchDB.settings.bagsCombined = false
-P:RefreshBuiltin("Perch_Bags")
-equal(bagsCell.text:GetText(), "9/16 | 3/8", "separate bags list each one")
-PerchDB.settings.bagsCombined = true
+equal(bagsCell.text:GetText(), "12/24", "bags add up across all bags")
 Stub.bagData[1] = nil
 P:RefreshBuiltin("Perch_Bags")
 
@@ -815,7 +811,7 @@ equal(Stub.bagsToggled, 1, "left-clicking bags toggles the bags")
 equal(Stub.openedCategory, nil, "left-clicking bags does not open the options")
 bagsCell.scripts.OnClick(bagsCell, "RightButton")
 equal(Stub.bagsToggled, 1, "right-clicking bags does not toggle them")
-equal(P.selectedElement, "Perch_Bags", "right-clicking bags opens their settings")
+equal(Stub.openedCategory, nil, "bags have no settings, so right-click does nothing")
 
 local durabilityCell = P.brokerElements["Perch_Durability"]
 Stub.openedCategory = nil
@@ -851,7 +847,7 @@ P.selectedElement = "Perch_Gold"
 P:RefreshOptions()
 local goldDropdown = findDropdown("Gold format")
 check(goldDropdown ~= nil and goldDropdown.button:IsShown(), "gold format selector shows for the gold element")
-check(not findCheckbox("Show as one bag"):IsShown(), "bag settings hide for the gold element")
+check(not findCheckbox("24-hour clock"):IsShown(), "clock settings hide for the gold element")
 check(pickItem(goldDropdown, "custom"), "gold format can be set to custom")
 equal(PerchDB.settings.goldFormat, "custom", "the preset choice is stored")
 PerchDB.settings.goldCustom = "#g"
@@ -882,13 +878,8 @@ check(pickItem(xpDropdown, "percent"), "XP format restored")
 
 P.selectedElement = "Perch_Bags"
 P:RefreshOptions()
-local oneBag = findCheckbox("Show as one bag")
-check(oneBag:IsShown(), "the one-bag option shows for the bags element")
-oneBag:SetChecked(false)
-oneBag.scripts.OnClick(oneBag)
-equal(PerchDB.settings.bagsCombined, false, "one-bag checkbox writes the setting")
-oneBag:SetChecked(true)
-oneBag.scripts.OnClick(oneBag)
+check(not goldDropdown.button:IsShown() and not xpDropdown.button:IsShown(),
+  "no format settings show for the bags element")
 P.selectedElement = goldKey
 P:RefreshOptions()
 

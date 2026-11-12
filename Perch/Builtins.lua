@@ -134,22 +134,17 @@ local function updateBags()
     return
   end
   local free, total = 0, 0
-  local perBag = {}
   for bag = 0, 4 do
     local slots = containerAPI.slots(bag)
     if slots and slots > 0 then
       total = total + slots
-      local freeSlots = (containerAPI.free and containerAPI.free(bag)) or 0
-      free = free + (freeSlots or 0)
-      perBag[#perBag + 1] = string.format("%d/%d", freeSlots or 0, slots)
+      free = free + ((containerAPI.free and containerAPI.free(bag)) or 0)
     end
   end
-  if total == 0 then
-    P:SetBuiltinText("Perch_Bags", "")
-  elseif P.db.settings.bagsCombined == false then
-    P:SetBuiltinText("Perch_Bags", table.concat(perBag, " | "), free)
-  else
+  if total > 0 then
     P:SetBuiltinText("Perch_Bags", string.format("%d/%d", free, total), free)
+  else
+    P:SetBuiltinText("Perch_Bags", "")
   end
 end
 
@@ -289,8 +284,13 @@ function P:InitBuiltins()
   newObject("Perch_Durability", "Durability", "Interface\\Icons\\INV_Shield_06", {
     OnTooltipShow = durabilityTooltip,
   })
+  -- No settings: left-click opens the bags.
   newObject("Perch_Bags", "Bags", "Interface\\Icons\\INV_Misc_Bag_08", {
-    OnClick = clickHandler("Perch_Bags", toggleBags),
+    OnClick = function(_, button)
+      if button == "LeftButton" then
+        toggleBags()
+      end
+    end,
   })
   newObject("Perch_Coords", "Coords", "Interface\\Icons\\INV_Misc_Map_01", {
     OnClick = clickHandler("Perch_Coords"),

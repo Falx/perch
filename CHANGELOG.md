@@ -14,8 +14,7 @@ First working build.
     coin icons, gold only) or a custom template using `#g #s #c` (amounts) and
     `#gi #si #ci` (coin icons).
   - **Durability:** hovering lists every slot with its percentage (no settings).
-  - **Bags:** left-click opens the bags; right-click settings has "Show as one
-    bag" (off lists each bag's free/total).
+  - **Bags:** left-click opens the bags (no settings).
   - **Experience:** right-click settings with presets (current %, current % +
     rested %, current/max, current+rested/max, missing) or a custom template using
     `#c #m #r #x #p #rp #xp`. The bar also refreshes on rested-XP changes.

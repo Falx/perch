@@ -57,7 +57,6 @@ local defaults = {
     goldCustom = "#gg #ss #cc",
     xpFormat = "percent",
     xpCustom = "#p% (#c/#m)",
-    bagsCombined = true,
   },
 }
 
