@@ -202,62 +202,78 @@ function P:Layout()
     end
   end
 
-  local previous
-  local width = db.padding * 2
+  local offset = db.padding
+  local placed = 0
   local secureCells = {}
 
   for _, key in ipairs(ordered) do
     local cell = self:GetCell(key)
     if cell and cell.isCommand then
-      secureCells[#secureCells + 1] = cell
+      -- Recorded now, positioned after the bar has its final width.
+      secureCells[#secureCells + 1] = { cell = cell, offset = offset }
+      offset = offset + (cell.width or 0) + db.spacing
+      placed = placed + 1
     elseif cell and cell:IsShown() then
+      -- Explicit offsets from the bar instead of chaining cell to cell, so a
+      -- command cell between two broker cells does not leave a gap in the
+      -- normal chain.
       cell:ClearAllPoints()
-      if previous then
-        cell:SetPoint("LEFT", previous, "RIGHT", db.spacing, 0)
-        width = width + db.spacing
-      else
-        cell:SetPoint("LEFT", bar, "LEFT", db.padding, 0)
-      end
-      width = width + (cell.width or 0)
-      previous = cell
+      cell:SetPoint("LEFT", bar, "LEFT", offset, 0)
+      offset = offset + (cell.width or 0) + db.spacing
+      placed = placed + 1
     end
   end
 
-  -- Secure cells are UIParent children. Anchoring them to the bar (or to a
-  -- normal cell) would make those frames protected, and then every SetWidth
-  -- on a broker cell is blocked in combat. Place them by screen position
-  -- instead, after the normal chain.
-  if #secureCells > 0 then
-    if not bar:IsShown() then
-      bar:Show()
-    end
-    local barScale = bar:GetScale() or 1
-    local left = bar:GetLeft() or 0
-    local bottom = bar:GetBottom() or 0
-    for _, cell in ipairs(secureCells) do
-      if previous or width > db.padding * 2 then
-        width = width + db.spacing
-      end
-      cell:ClearAllPoints()
-      cell:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left + (width - db.padding) * barScale, bottom)
-      cell:SetScale(barScale)
-      cell:SetAlpha(bar:GetAlpha())
-      width = width + (cell.width or 0)
-      previous = cell
-    end
+  local width
+  if placed > 0 then
+    width = offset - db.spacing + db.padding
+  else
+    width = db.padding * 2
   end
-
   bar:SetWidth(math.max(width, 1))
   bar:SetHeight(db.height)
 
-  local showBar = (width > db.padding * 2 + 1) or not db.hideWhenEmpty
+  -- Secure command cells must not be anchored to the bar or to a broker cell:
+  -- on 16001 that makes the anchored-to frame protected, and every SetWidth on
+  -- it is refused in combat (the original ADDON_ACTION_BLOCKED). This invisible
+  -- frame mirrors the bar's point, size and scale, so the cells line up while
+  -- only it ends up protected.
+  if #secureCells > 0 then
+    local anchor = self:SecureAnchor()
+    local point, _, relativePoint, x, y = bar:GetPoint()
+    anchor:ClearAllPoints()
+    anchor:SetPoint(point or "TOP", UIParent, relativePoint or "TOP", x or 0, y or 0)
+    anchor:SetSize(bar:GetWidth(), bar:GetHeight())
+    anchor:SetScale(bar:GetScale() or 1)
+    anchor:Show()
+    for _, placement in ipairs(secureCells) do
+      local cell = placement.cell
+      cell:ClearAllPoints()
+      cell:SetPoint("LEFT", anchor, "LEFT", placement.offset, 0)
+      cell:SetScale(bar:GetScale() or 1)
+      cell:SetAlpha(bar:GetAlpha())
+    end
+  elseif self.secureAnchor then
+    self.secureAnchor:Hide()
+  end
+
+  local showBar = placed > 0 or not db.hideWhenEmpty
   if db.hideInCombat and InCombatLockdown() then
     showBar = false
   end
   bar:SetShown(showBar)
-  for _, cell in ipairs(secureCells) do
-    cell:SetShown(showBar)
+  for _, placement in ipairs(secureCells) do
+    placement.cell:SetShown(showBar)
   end
+end
+
+function P:SecureAnchor()
+  if not self.secureAnchor then
+    local anchor = CreateFrame("Frame", nil, UIParent)
+    anchor:Hide()
+    self.secureAnchor = anchor
+  end
+  return self.secureAnchor
 end
 
 function P:ListElements()

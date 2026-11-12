@@ -105,9 +105,10 @@ the FPS source now prefers `GetFPS` and falls back to `GetFramerate`.
   secure button itself was fine. OneForAll documents the same thing in
   `UI/InfoBar.lua` ("the live client does not let a secure button hang on a
   normal one").
-  - Command cells now live on **`UIParent`** and are positioned by screen
-    coordinates (`GetLeft`/`GetBottom` × effective scale) in `Layout`, never
-    anchored to the bar or to a broker cell.
+  - Command cells now live on **`UIParent`** and anchor to an invisible mirror
+    frame (`P.secureAnchor`) that copies the bar's point, size and scale. They
+    are never anchored to the bar or a broker cell. (Screen coordinates via
+    `GetLeft` were rejected: they go stale right after `SetWidth`.)
   - They are hidden on `PLAYER_REGEN_DISABLED` (the last moment `Hide` is
     allowed) and shown/repositioned on `PLAYER_REGEN_ENABLED`.
   - `SizeCell` still refuses `SetWidth`/`SetHeight` in combat and sets

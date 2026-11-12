@@ -111,8 +111,10 @@ respecting combat protection.
 On 16001 a secure button anchored to a normal frame makes that frame protected
 too, so the bar and every broker cell would refuse `SetWidth` in combat
 (`ADDON_ACTION_BLOCKED`). Command cells therefore stay on `UIParent` and
-`Layout` places them by screen coordinates (`GetLeft`/`GetBottom` × effective
-scale). They are hidden on `PLAYER_REGEN_DISABLED` (the last safe moment) and
+`Layout` anchors them to an invisible **mirror frame** (`P.secureAnchor`) that
+copies the bar's point, size and scale, so only that frame becomes protected.
+Normal cells are positioned by explicit offsets from the bar, so command cells
+can sit anywhere in the order. They are hidden on `PLAYER_REGEN_DISABLED` (the last safe moment) and
 shown/repositioned on `PLAYER_REGEN_ENABLED`. Rebuilds are deferred during
 combat.
 
@@ -196,7 +198,7 @@ without slash commands.
 - [x] Vendored LibStub, CallbackHandler-1.0, LibDataBroker-1.1
 - [x] `Perch.toc` with `## Interface: 16001`
 - [x] `tools/package.sh`
-- [x] `luajit` harness with 90 assertions
+- [x] `luajit` harness with 96 assertions
 - [x] `/perch doctor`
 
 ### Phase 1 — usable bar — DONE (pending in-game verification)

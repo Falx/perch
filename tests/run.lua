@@ -254,6 +254,16 @@ local ordered = P:OrderedKeys()
 equal(ordered[1], "Perch_Clock", "built-ins keep their default order")
 check(tContains(ordered, "cmd:Reload"), "commands participate in the order")
 
+-- Command cells anchor to a mirror frame, never to the bar: on 16001 anchoring
+-- a secure button to a normal frame protects it and blocks SetWidth in combat.
+Stub.Tick()
+local secureCell = P.commandCells["cmd:Reload"]
+local _, secureRelativeTo = secureCell:GetPoint()
+check(secureRelativeTo ~= nil and secureRelativeTo ~= P.bar,
+  "secure cell is not anchored to the bar")
+equal(secureRelativeTo, P.secureAnchor, "secure cell anchors to the mirror frame")
+check(P.secureAnchor:IsShown(), "mirror frame is shown while command cells exist")
+
 --------------------------------------------------------------------------
 -- Diagnostics
 --------------------------------------------------------------------------
@@ -269,6 +279,9 @@ check(report:find("client 1.60.1", 1, true) ~= nil, "doctor reports the client b
 check(report:find("broker cells:", 1, true) ~= nil, "doctor reports the broker cell count")
 check(report:find("broker errors:", 1, true) ~= nil, "doctor reports broker failures")
 check(report:find("bar: shown", 1, true) ~= nil, "doctor reports the bar state")
+check(report:find("command cells:", 1, true) ~= nil, "doctor reports the command cell count")
+check(report:find("cmd:Reload:", 1, true) ~= nil, "doctor lists each command cell")
+check(report:find("parent UIParent", 1, true) ~= nil, "doctor shows the command cell parent")
 
 Stub.ResetMessages()
 SlashCmdList["PERCH"]("dump")

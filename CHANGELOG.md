@@ -42,7 +42,7 @@ First working build.
 - **Combat `ADDON_ACTION_BLOCKED: Button:SetWidth()` fixed.** Anchoring a
   secure command cell to the bar made the broker cells protected, so resizing
   them in combat was refused. Command cells now live on `UIParent` and are
-  placed by screen coordinates, hidden on `PLAYER_REGEN_DISABLED` and restored
+  anchored to an invisible mirror frame, hidden on `PLAYER_REGEN_DISABLED` and restored
   on `PLAYER_REGEN_ENABLED`.
 - Options widgets read the saved values immediately; the Settings canvas is
   created already shown, so `OnShow` never fired on the first open.
