@@ -96,9 +96,44 @@ the FPS source now prefers `GetFPS` and falls back to `GetFramerate`.
   by default and opt-in from the options element list.
 - `/perch list` now prints every known element with an `[off]` marker.
 
+### Third pass (same build)
+
+- **Root cause of the combat `Button:SetWidth()` block:** a secure button
+  anchored into the bar made the *broker cells* protected too. On 16001 an
+  addon frame that holds or is anchored to a secure frame becomes protected, so
+  `SetWidth` / `ClearAllPoints` on it is refused in combat even though the
+  secure button itself was fine. OneForAll documents the same thing in
+  `UI/InfoBar.lua` ("the live client does not let a secure button hang on a
+  normal one").
+  - Command cells now live on **`UIParent`** and are positioned by screen
+    coordinates (`GetLeft`/`GetBottom` × effective scale) in `Layout`, never
+    anchored to the bar or to a broker cell.
+  - They are hidden on `PLAYER_REGEN_DISABLED` (the last moment `Hide` is
+    allowed) and shown/repositioned on `PLAYER_REGEN_ENABLED`.
+  - `SizeCell` still refuses `SetWidth`/`SetHeight` in combat and sets
+    `sizePending`; `ApplyAll` after combat clears it. This is now a belt-and-
+    braces guard rather than the main fix.
+- **Command buttons need `type` *and* `type1`** on this client, plus
+  `macrotext`/`macrotext1`, `useOnKeyDown = false` and `RegisterForClicks("AnyUp")`.
+  That is what OneForAll, EnhanceQoL `MountActions` and Blackthornes Farmer use;
+  the single `type`/`macrotext` pair alone was not enough.
+- **Settings canvas is created already shown**, so `OnShow` never fires on the
+  first open. Every option widget read as unchecked/zero until it was touched.
+  Widgets now initialise at creation, and `OpenToCategory` schedules one
+  `RefreshOptions` after the frame is visible.
+- **Disabled broker cells were re-shown by the poll.** `PollBrokers` called
+  `RefreshBrokerCell`, which always ended in `cell:Show()`, and `Layout` skipped
+  disabled cells without hiding them — so an unticked element stayed visible at
+  its stale anchor and drew over its neighbour. `RefreshBrokerCell` now checks
+  `IsEnabled` first and hides, and `Layout` hides every cell not in the enabled
+  order.
+- `/perch doctor` now reports each command cell: shown/hidden, parent, click
+  count (`PostClick`), and the macrotext/type it actually carries.
+
 ### Still to verify
 
 - Command cell actually fires the macro (`/perch cmd add Test /perch list`).
 - Options canvas layout/scroll on the real client; `/perch frame` standalone.
 - Tooltips after the callback fix, drag/save, UI scale 80%/120%, second
   character.
+- No `ADDON_ACTION_BLOCKED` while pulling a mob with command cells on the bar.

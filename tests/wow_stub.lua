@@ -229,6 +229,22 @@ local function newFrame(kind, name, parent)
     return self.scale
   end
 
+  function frame:GetEffectiveScale()
+    return self.scale
+  end
+
+  function frame:GetLeft()
+    return self.left or 0
+  end
+
+  function frame:GetBottom()
+    return self.bottom or 0
+  end
+
+  function frame:GetRight()
+    return (self.left or 0) + (self.width or 0)
+  end
+
   function frame:SetScript(name, handler)
     self.scripts[name] = handler
   end
@@ -393,8 +409,16 @@ local function newFrame(kind, name, parent)
     self.strata = strata
   end
 
+  function frame:GetFrameStrata()
+    return self.strata or "MEDIUM"
+  end
+
   function frame:SetFrameLevel(level)
     self.level = level
+  end
+
+  function frame:GetFrameLevel()
+    return self.level or 1
   end
 
   function frame:StartMoving() end

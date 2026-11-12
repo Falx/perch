@@ -1,8 +1,9 @@
 # Perch — design plan
 
-**Status:** Phase 0/1 implemented and rendering in the client; second-pass fixes
-(callbacks, secure clicks, combat layout, embedded options) await verification —
-see `docs/ADDON-NOTES.md`
+**Status:** Phase 0/1 implemented; the bar renders in the client and broker
+clicks, drag and embedded options work. Third-pass fixes (secure cells on
+`UIParent`, options init, hidden disabled cells) are committed pending a
+command-click retest — see `docs/ADDON-NOTES.md`
 **Last updated:** 2026-11-12
 **Target client:** World of Warcraft: Forever, interface `16001`
 **Repo identity:** `Falx <thomasdupont100@gmail.com>` (repo-local git config)
@@ -101,12 +102,19 @@ Verified against the vendored LibDataBroker-1.1 (minor 4):
 - Empty text with no icon hides the cell.
 - `type == "launcher"` objects are hidden unless explicitly enabled.
 
-**Command cell** — `SecureActionButtonTemplate` with `type = "macro"`,
-`macrotext = <string>` and `RegisterForClicks("AnyUp")` (without it the template
-never fires `OnClick`). Works for `/cast`, `/use`, `/target` and addon slash
-commands while respecting combat protection. Rebuilds are deferred during
-combat, and `Layout` is skipped entirely in combat because `ClearAllPoints` on a
-secure child is protected.
+**Command cell** — `SecureActionButtonTemplate` parented to **`UIParent`**, with
+`type = "macro"`, `type1 = "macro"`, `macrotext`/`macrotext1`, `useOnKeyDown =
+false` and `RegisterForClicks("AnyUp")` (without it the template never fires
+`OnClick`). Works for `/cast`, `/use`, `/target` and addon slash commands while
+respecting combat protection.
+
+On 16001 a secure button anchored to a normal frame makes that frame protected
+too, so the bar and every broker cell would refuse `SetWidth` in combat
+(`ADDON_ACTION_BLOCKED`). Command cells therefore stay on `UIParent` and
+`Layout` places them by screen coordinates (`GetLeft`/`GetBottom` × effective
+scale). They are hidden on `PLAYER_REGEN_DISABLED` (the last safe moment) and
+shown/repositioned on `PLAYER_REGEN_ENABLED`. Rebuilds are deferred during
+combat.
 
 ### 4.3 Layout
 
@@ -114,7 +122,11 @@ secure child is protected.
   self-centers it.
 - Cell width = icon (if shown) + icon padding + `GetStringWidth(text)`.
 - Re-layout is debounced with `C_Timer.After(0, ...)`, never in `OnUpdate`.
-- Hidden/disabled cells are skipped, so the bar shrinks to its content.
+- Disabled cells are hidden first, so they cannot linger at a stale anchor or
+  draw over their neighbour; the bar shrinks to its content.
+- Secure command cells are laid out last, by screen position, after the normal
+  chain. `Layout` still returns early in combat and is retried on
+  `PLAYER_REGEN_ENABLED`.
 
 ### 4.4 Data model
 
@@ -168,9 +180,12 @@ background alpha, reset position, reset settings, doctor.
 
 The Settings canvas gets its own chrome-less content frame; the draggable
 standalone frame (`/perch frame`) is built lazily and shares the same content
-builder. A scrollable **Elements** list shows every LDB object Perch knows
-about (including hidden launchers) with a checkbox per element, so new plugins
-can be added to the bar without slash commands.
+builder. The canvas is created already shown, so `OnShow` never fires on the
+first open: widgets initialise their values at creation, and `OpenToCategory`
+schedules one `RefreshOptions` after the frame is visible. A scrollable
+**Elements** list shows every LDB object Perch knows about (including hidden
+launchers) with a checkbox per element, so new plugins can be added to the bar
+without slash commands.
 
 ---
 
@@ -181,7 +196,7 @@ can be added to the bar without slash commands.
 - [x] Vendored LibStub, CallbackHandler-1.0, LibDataBroker-1.1
 - [x] `Perch.toc` with `## Interface: 16001`
 - [x] `tools/package.sh`
-- [x] `luajit` harness with 54 assertions
+- [x] `luajit` harness with 90 assertions
 - [x] `/perch doctor`
 
 ### Phase 1 — usable bar — DONE (pending in-game verification)
@@ -195,7 +210,11 @@ can be added to the bar without slash commands.
 - [x] **First in-game pass: `/perch doctor`** — 1.60.1/70888, Settings id 21,
       `GetFPS` missing, LDB 21 objects
 - [x] Fix `FontString:SetText(): Font not set` (hard error on 16001)
-- [ ] Re-test the bar in the client after the font fix
+- [x] Re-test the bar in the client after the font fix — bar renders, clicks,
+      drag and `/perch frame` work
+- [x] Secure command cells on `UIParent` (fixes combat `SetWidth` block)
+- [x] Options widgets initialise on creation; disabled cells stay hidden
+- [ ] Verify a command cell fires its macro in the client
 
 ### Phase 2 — configuration depth
 - [x] Element visibility list: every LDB object, launchers opt-in

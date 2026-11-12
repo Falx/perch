@@ -72,6 +72,46 @@ function P:Doctor()
   end
   add("broker cells: %d (order %d, enabled %d)", cellCount, #self.db.order, #self:OrderedKeys())
 
+  -- Command cells are the part most likely to fail silently: a secure button
+  -- with no registered click, a stale macrotext or a cell hidden since combat
+  -- still looks like a working cell in the bar.
+  local commandCount = 0
+  for _ in pairs(self.commandCells or {}) do
+    commandCount = commandCount + 1
+  end
+  add("command cells: %d (clicks recorded %d)", commandCount, self.commandClicks or 0)
+  local commandKeys = {}
+  for key in pairs(self.commandCells or {}) do
+    commandKeys[#commandKeys + 1] = key
+  end
+  table.sort(commandKeys)
+  for _, key in ipairs(commandKeys) do
+    local cell = self.commandCells[key]
+    local command = cell.command
+    local parent = cell:GetParent()
+    local parentName = "none"
+    if parent == UIParent then
+      parentName = "UIParent"
+    elseif parent then
+      parentName = tostring(parent)
+    end
+    add("  %s: %s, clicks %d, parent %s",
+      key,
+      cell:IsShown() and "shown" or "hidden",
+      cell.commandClicks or 0,
+      parentName)
+    local macrotext = command and command.macrotext
+    if macrotext == nil and cell.GetAttribute then
+      macrotext = cell:GetAttribute("macrotext")
+    end
+    add("    type=%s macro=%s",
+      tostring(cell.GetAttribute and cell:GetAttribute("type")),
+      tostring(macrotext))
+  end
+  if self.commandRebuildPending then
+    add("  rebuild pending (combat)")
+  end
+
   local failed = {}
   for name, err in pairs(self.brokerErrors or {}) do
     failed[#failed + 1] = string.format("%s: %s", name, tostring(err):gsub("\n", " | "))

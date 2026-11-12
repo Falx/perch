@@ -27,22 +27,33 @@ function P:CreateBar()
   bar:SetScript("OnDragStop", function(frame)
     frame:StopMovingOrSizing()
     P:SavePosition()
+    -- Secure command cells sit on UIParent, so they only follow the bar when
+    -- the layout pass runs.
+    P:RequestLayout()
   end)
 
   bar:SetScript("OnEnter", function(frame)
     if P.db.bar.mouseoverFade then
       frame:SetAlpha(1)
+      P:SetCommandAlpha(1)
     end
   end)
 
   bar:SetScript("OnLeave", function(frame)
     if P.db.bar.mouseoverFade then
       frame:SetAlpha(0.35)
+      P:SetCommandAlpha(0.35)
     end
   end)
 
   self.bar = bar
   self:ApplyBarStyle()
+end
+
+function P:SetCommandAlpha(alpha)
+  for _, cell in pairs(self.commandCells or {}) do
+    cell:SetAlpha(alpha)
+  end
 end
 
 function P:ApplyBarStyle()
@@ -51,10 +62,18 @@ function P:ApplyBarStyle()
     return
   end
   local db = self.db.bar
+  local alpha = db.mouseoverFade and 0.35 or 1
   bar:SetScale(db.scale)
   bar:SetHeight(db.height)
   bar:EnableMouse(not db.clickThrough)
-  bar:SetAlpha(db.mouseoverFade and 0.35 or 1)
+  bar:SetAlpha(alpha)
+  -- Command cells live on UIParent and do not inherit the bar's scale/alpha.
+  if not (InCombatLockdown and InCombatLockdown()) then
+    for _, cell in pairs(self.commandCells or {}) do
+      cell:SetScale(db.scale)
+      cell:SetAlpha(alpha)
+    end
+  end
 
   local background = db.background
   bar.bg:SetShown(background.enabled ~= false)
@@ -165,12 +184,33 @@ function P:Layout()
   end
   self.layoutDeferred = nil
   local db = self.db.bar
+  local ordered = self:OrderedKeys()
+  local enabled = {}
+  for _, key in ipairs(ordered) do
+    enabled[key] = true
+  end
+
+  -- Disabled cells keep their old anchors unless they are hidden, which made
+  -- an unticked element draw over its neighbour. Hide every cell that is not
+  -- in the enabled order before placing anything.
+  for _, key in ipairs(self:AllKeys()) do
+    if not enabled[key] then
+      local cell = self:GetCell(key)
+      if cell then
+        cell:Hide()
+      end
+    end
+  end
+
   local previous
   local width = db.padding * 2
+  local secureCells = {}
 
-  for _, key in ipairs(self:OrderedKeys()) do
+  for _, key in ipairs(ordered) do
     local cell = self:GetCell(key)
-    if cell and cell:IsShown() then
+    if cell and cell.isCommand then
+      secureCells[#secureCells + 1] = cell
+    elseif cell and cell:IsShown() then
       cell:ClearAllPoints()
       if previous then
         cell:SetPoint("LEFT", previous, "RIGHT", db.spacing, 0)
@@ -178,6 +218,30 @@ function P:Layout()
       else
         cell:SetPoint("LEFT", bar, "LEFT", db.padding, 0)
       end
+      width = width + (cell.width or 0)
+      previous = cell
+    end
+  end
+
+  -- Secure cells are UIParent children. Anchoring them to the bar (or to a
+  -- normal cell) would make those frames protected, and then every SetWidth
+  -- on a broker cell is blocked in combat. Place them by screen position
+  -- instead, after the normal chain.
+  if #secureCells > 0 then
+    if not bar:IsShown() then
+      bar:Show()
+    end
+    local barScale = bar:GetScale() or 1
+    local left = bar:GetLeft() or 0
+    local bottom = bar:GetBottom() or 0
+    for _, cell in ipairs(secureCells) do
+      if previous or width > db.padding * 2 then
+        width = width + db.spacing
+      end
+      cell:ClearAllPoints()
+      cell:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left + (width - db.padding) * barScale, bottom)
+      cell:SetScale(barScale)
+      cell:SetAlpha(bar:GetAlpha())
       width = width + (cell.width or 0)
       previous = cell
     end
@@ -191,6 +255,9 @@ function P:Layout()
     showBar = false
   end
   bar:SetShown(showBar)
+  for _, cell in ipairs(secureCells) do
+    cell:SetShown(showBar)
+  end
 end
 
 function P:ListElements()

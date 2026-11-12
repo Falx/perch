@@ -8,6 +8,10 @@ local function trim(value)
   return (tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
+local function inCombat()
+  return InCombatLockdown and InCombatLockdown()
+end
+
 function P:FindCommand(name)
   name = trim(name)
   for index, command in ipairs(self.db.commands) do
@@ -49,12 +53,6 @@ function P:RemoveCommand(name)
   end
   table.remove(self.db.commands, index)
   local key = "cmd:" .. command.name
-  local cell = self.commandCells and self.commandCells[key]
-  if cell then
-    cell:Hide()
-    cell:SetParent(nil)
-    self.commandCells[key] = nil
-  end
   for orderIndex, ordered in ipairs(self.db.order) do
     if ordered == key then
       table.remove(self.db.order, orderIndex)
@@ -62,13 +60,82 @@ function P:RemoveCommand(name)
     end
   end
   self.db.elements[key] = nil
+  -- RebuildCommands owns the cell teardown: doing it here would touch a
+  -- secure frame, which is protected during combat.
   self:RebuildCommands()
   self:Print("Removed command '" .. command.name .. "'.")
   return true
 end
 
+function P:ShowCommandTooltip(cell)
+  GameTooltip:SetOwner(cell, "ANCHOR_BOTTOM")
+  GameTooltip:ClearLines()
+  local command = cell.command
+  GameTooltip:SetText((command and command.name) or "Command", 1, 1, 1)
+  local macro = command and command.macrotext
+  if macro and macro ~= "" then
+    GameTooltip:AddLine(macro, 0.8, 0.8, 0.8)
+  end
+  GameTooltip:Show()
+end
+
+-- Command cells are secure buttons. On 16001 a secure button anchored to a
+-- normal frame makes that frame protected too, and every SetWidth on a
+-- protected frame is blocked in combat. Keep them on UIParent and place them
+-- by screen position in Layout instead of anchoring them into the bar chain.
+function P:CreateCommandCell(command, key)
+  local bar = self.bar
+  local cell = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
+  cell.isCommand = true
+  cell.commandKey = key
+  cell.command = command
+  cell:SetFrameStrata((bar and bar:GetFrameStrata()) or "LOW")
+  cell:SetFrameLevel(((bar and bar:GetFrameLevel()) or 1) + 5)
+  cell:SetScale((self.db.bar and self.db.bar.scale) or 1)
+  cell:EnableMouse(true)
+  cell:RegisterForClicks("AnyUp")
+  cell:SetAttribute("useOnKeyDown", false)
+  cell:SetAttribute("type", "macro")
+  cell:SetAttribute("type1", "macro")
+  cell:SetAttribute("macrotext", command.macrotext or "")
+  cell:SetAttribute("macrotext1", command.macrotext or "")
+
+  cell.text = cell:CreateFontString(nil, "OVERLAY")
+  self:ApplyCellFont(cell)
+  cell.icon = cell:CreateTexture(nil, "ARTWORK")
+  cell.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  cell.highlight = cell:CreateTexture(nil, "HIGHLIGHT")
+  cell.highlight:SetAllPoints(cell)
+  cell.highlight:SetColorTexture(1, 1, 1, 0.15)
+
+  cell.icon:SetTexture(command.icon or DEFAULT_COMMAND_ICON)
+  cell.iconVisible = self.db.bar.showIcons ~= false
+  cell.icon:SetShown(cell.iconVisible)
+  cell.text:SetText(command.name or "Command")
+
+  cell:SetScript("OnEnter", function(frame)
+    P:ShowCommandTooltip(frame)
+  end)
+  cell:SetScript("OnLeave", function()
+    GameTooltip:Hide()
+  end)
+  -- Diagnostics only: the secure template owns OnClick. PostClick still fires
+  -- after the secure action, so /perch doctor can tell a click apart from a
+  -- button that was never hit.
+  cell:HookScript("PostClick", function(frame)
+    frame.commandClicks = (frame.commandClicks or 0) + 1
+    P.commandClicks = (P.commandClicks or 0) + 1
+  end)
+
+  function cell:ContentLabel()
+    return self.command and self.command.name or "Command"
+  end
+
+  return cell
+end
+
 function P:RebuildCommands()
-  if InCombatLockdown and InCombatLockdown() then
+  if inCombat() then
     self.commandRebuildPending = true
     return
   end
@@ -82,37 +149,14 @@ function P:RebuildCommands()
 
   for _, command in ipairs(self.db.commands) do
     local key = "cmd:" .. command.name
-    local cell = CreateFrame("Button", nil, self.bar, "SecureActionButtonTemplate")
-    cell.isCommand = true
-    cell.commandKey = key
-    cell.command = command
-
-    cell:SetAttribute("type", "macro")
-    cell:SetAttribute("macrotext", command.macrotext or "")
-    -- Without this the secure template never fires OnClick, so the macro
-    -- silently does nothing.
-    cell:RegisterForClicks("AnyUp")
-
-    cell.text = cell:CreateFontString(nil, "OVERLAY")
-    self:ApplyCellFont(cell)
-    cell.icon = cell:CreateTexture(nil, "ARTWORK")
-    cell.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    cell.highlight = cell:CreateTexture(nil, "HIGHLIGHT")
-    cell.highlight:SetAllPoints(cell)
-    cell.highlight:SetColorTexture(1, 1, 1, 0.15)
-
-    cell.icon:SetTexture(command.icon or DEFAULT_COMMAND_ICON)
-    cell.iconVisible = self.db.bar.showIcons ~= false
-    cell.icon:SetShown(cell.iconVisible)
-    cell.text:SetText(command.name or "Command")
-
-    function cell:ContentLabel()
-      return self.command and self.command.name or "Command"
+    local ok, cell = pcall(self.CreateCommandCell, self, command, key)
+    if ok and cell then
+      self.commandCells[key] = cell
+      self:EnsureOrder(key)
+      self:SizeCell(cell)
+    else
+      self:RecordBrokerError(key, cell)
     end
-
-    self.commandCells[key] = cell
-    self:EnsureOrder(key)
-    self:SizeCell(cell)
   end
 
   self:RequestLayout()

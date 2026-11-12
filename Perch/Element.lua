@@ -110,6 +110,12 @@ function P:RefreshBrokerCell(cell, obj)
   if not cell then
     return
   end
+  -- An unticked element must stay hidden even when its plugin keeps pushing
+  -- updates; otherwise the poller re-shows it at its stale anchor.
+  if not self:IsEnabled(cell.brokerName) then
+    cell:Hide()
+    return
+  end
   local barDB = self.db.bar
   local text = self:BrokerText(obj)
   local hasIcon = (obj.icon ~= nil and barDB.showIcons ~= false) and true or false
@@ -164,6 +170,14 @@ function P:SizeCell(cell)
 
   local textWidth = cell.text:GetStringWidth() or 0
   cell.width = offset + textWidth
+  -- Resizing a protected frame is blocked in combat. Broker cells should stay
+  -- unprotected now that command cells live on UIParent, but keep this guard so
+  -- a stray secure child can never produce ADDON_ACTION_BLOCKED again.
+  if InCombatLockdown and InCombatLockdown() then
+    cell.sizePending = true
+    return
+  end
+  cell.sizePending = nil
   cell:SetWidth(math.max(cell.width, 1))
   cell:SetHeight(db.height)
 end

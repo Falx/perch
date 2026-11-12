@@ -162,6 +162,19 @@ function P:SetElementEnabled(key, enabled)
     return
   end
   self:ElementDB(key).enabled = enabled and true or false
+  local cell = self:GetCell(key)
+  if cell then
+    if cell.isCommand then
+      -- Secure button: Show/Hide is protected in combat.
+      if not (InCombatLockdown and InCombatLockdown()) then
+        cell:SetShown(enabled)
+      end
+    else
+      -- Re-read the cell so an enabled element is shown again and a disabled
+      -- one is hidden immediately.
+      self:UpdateBrokerCell(key)
+    end
+  end
   self:RequestLayout()
   self:RefreshOptions()
 end
@@ -219,19 +232,32 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
     P:RebuildCommands()
     P:RequestLayout()
   elseif event == "PLAYER_ENTERING_WORLD" then
+    if InCombatLockdown() then
+      for _, cell in pairs(P.commandCells or {}) do
+        cell:Hide()
+      end
+    end
     if P.db.bar.hideInCombat and InCombatLockdown() then
       P:RequestLayout()
     end
     P:ScanBrokers()
     P:RequestLayout()
   elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
-    if P.commandRebuildPending then
-      P:RebuildCommands()
-    end
-    if event == "PLAYER_REGEN_DISABLED" and P.db.bar.hideInCombat and P.bar then
-      P.bar:Hide()
+    if event == "PLAYER_REGEN_DISABLED" then
+      -- Last safe moment: secure cells cannot be hidden once combat locks them.
+      for _, cell in pairs(P.commandCells or {}) do
+        cell:Hide()
+      end
+      if P.db.bar.hideInCombat and P.bar then
+        P.bar:Hide()
+      end
     else
-      P:RequestLayout()
+      if P.commandRebuildPending then
+        P:RebuildCommands()
+      end
+      -- Re-sizes cells that were skipped in combat and re-shows/repositions
+      -- the secure command cells.
+      P:ApplyAll()
     end
   end
 end)

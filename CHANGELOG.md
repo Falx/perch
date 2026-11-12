@@ -37,6 +37,19 @@ First working build.
   the HidingBar tooltip error, and are isolated with `pcall`.
 - Command cells call `RegisterForClicks("AnyUp")`; without it the secure macro
   button never fired and `/perch cmd` buttons did nothing.
+- Command cells now carry `type`/`type1` and `macrotext`/`macrotext1` plus
+  `useOnKeyDown = false`, the combination the Forever client actually executes.
+- **Combat `ADDON_ACTION_BLOCKED: Button:SetWidth()` fixed.** Anchoring a
+  secure command cell to the bar made the broker cells protected, so resizing
+  them in combat was refused. Command cells now live on `UIParent` and are
+  placed by screen coordinates, hidden on `PLAYER_REGEN_DISABLED` and restored
+  on `PLAYER_REGEN_ENABLED`.
+- Options widgets read the saved values immediately; the Settings canvas is
+  created already shown, so `OnShow` never fired on the first open.
+- Unticking an element now hides its cell for good; the poll used to re-show it
+  at its stale anchor, drawing it over the next element.
+- `/perch doctor` reports command cells: shown state, parent, click count and
+  the macrotext/type each one carries.
 - Layout is skipped during combat (`ClearAllPoints` on secure cells is
   protected) and retried on `PLAYER_REGEN_ENABLED`.
 - The Settings canvas gets a chrome-less content frame instead of the draggable
@@ -53,5 +66,6 @@ First working build.
 - Element ordering is stored but has no drag-and-drop UI yet.
 - No per-element label/colour overrides yet.
 - No settings import/export yet.
-- Verified on 1.60.1 build 70888; tooltips, clicks, command cells, drag, combat
-  and UI-scale checks are still pending.
+- Verified on 1.60.1 build 70888; tooltips, UI scale and a second character are
+  still pending. Command-cell clicks are instrumented (`/perch doctor` shows a
+  per-cell click count) but not yet confirmed in the client.

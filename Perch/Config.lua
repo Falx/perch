@@ -132,6 +132,12 @@ function P:CreateOptionsContent(parent)
   local widgets = {}
   local function track(widget)
     widgets[#widgets + 1] = widget
+    -- Initialise immediately: the Settings canvas is created already shown, so
+    -- OnShow never fires on the first open and every widget would read as
+    -- unchecked/zero until the user touched it.
+    if widget.refresh then
+      widget.refresh()
+    end
     return widget
   end
 
@@ -275,6 +281,13 @@ function P:CreateOptionsContent(parent)
   content:SetScript("OnShow", function()
     P:RefreshOptions()
   end)
+  -- The canvas can already be effectively visible when Settings embeds it, in
+  -- which case OnShow does not fire. One update is enough to pick up the LDB
+  -- objects that register after ADDON_LOADED (the element list).
+  content:SetScript("OnUpdate", function(self)
+    self:SetScript("OnUpdate", nil)
+    P:RefreshOptions()
+  end)
 
   self.optionWidgets = self.optionWidgets or {}
   for _, widget in ipairs(widgets) do
@@ -379,7 +392,15 @@ function P:OpenSettingsCategory()
   if id == nil then
     return false
   end
-  return (pcall(Settings.OpenToCategory, id))
+  local ok = pcall(Settings.OpenToCategory, id)
+  if ok and C_Timer and C_Timer.After then
+    -- Let the Settings system show the canvas, then fill in the widgets and
+    -- the element list (which includes LDB objects registered after login).
+    C_Timer.After(0, function()
+      P:RefreshOptions()
+    end)
+  end
+  return ok
 end
 
 function P:ShowOptionsFrame()
