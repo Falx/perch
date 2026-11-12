@@ -41,6 +41,9 @@ First working build.
 
 ### Fixed
 
+- Option sliders were invisible (a bare `Slider` frame has no track or thumb)
+  and their number boxes looked empty (an `EditBox` without a font never draws
+  its text). Sliders now draw a track and thumb, and every input sets its font.
 - 16001 raises `FontString:SetText(): Font not set` as a hard error. Cells now
   apply their font before the first text write; previously the first broker cell
   aborted the scan and the bar never rendered.

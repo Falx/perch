@@ -63,6 +63,13 @@ function UI.editbox(parent, x, y, width, getter, setter, options)
   box:SetSize(width, 20)
   box:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
   box:SetAutoFocus(false)
+  -- Without an explicit font the text is never drawn: the box looks empty even
+  -- though it holds a value.
+  local fontOk = pcall(box.SetFont, box, P.DEFAULT_FONT, 12, "")
+  if not fontOk and ChatFontNormal then
+    box:SetFontObject(ChatFontNormal)
+  end
+  box:SetTextColor(1, 1, 1, 1)
   if options.maxLetters then
     box:SetMaxLetters(options.maxLetters)
   end
@@ -141,6 +148,20 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
   widget:SetObeyStepOnDrag(true)
   widget:EnableMouseWheel(true)
 
+  -- A bare Slider frame draws nothing: give it a visible track and thumb.
+  widget.track = widget:CreateTexture(nil, "BACKGROUND")
+  widget.track:SetPoint("LEFT", widget, "LEFT", 0, 0)
+  widget.track:SetPoint("RIGHT", widget, "RIGHT", 0, 0)
+  widget.track:SetHeight(4)
+  widget.track:SetColorTexture(0.4, 0.4, 0.4, 0.9)
+
+  local thumb = widget:CreateTexture(nil, "OVERLAY")
+  thumb:SetSize(10, 20)
+  thumb:SetColorTexture(0.95, 0.8, 0.2, 1)
+  if not pcall(widget.SetThumbTexture, widget, thumb) then
+    widget:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+  end
+  widget.thumb = thumb
   widget.label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   widget.label:SetPoint("BOTTOMLEFT", widget, "TOPLEFT", 0, 2)
   widget.label:SetText(text)

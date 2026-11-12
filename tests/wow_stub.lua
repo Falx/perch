@@ -315,16 +315,32 @@ local function newFrame(kind, name, parent)
     return self.fontPath, self.fontSize
   end
 
-  function frame:SetFontObject() end
+  function frame:SetFontObject()
+    self.fontObjectSet = true
+  end
 
   function frame:SetText(text)
     -- 16001 raises a real error here, not a warning: text before font kills the
-    -- caller. Keep the stub strict so this can never regress.
+    -- caller. Keep the stub strict so this can never regress. An EditBox without
+    -- a font accepts the text but never draws it, which the tests check via
+    -- FontIsSet.
     if self.kind == "fontstring" and not self.fontPath then
       error("FontString:SetText(): Font not set", 2)
     end
     self.text = text
     self.setTextCount = (self.setTextCount or 0) + 1
+  end
+
+  function frame:FontIsSet()
+    return (self.fontPath ~= nil) or self.fontObjectSet == true
+  end
+
+  function frame:SetThumbTexture(thumb)
+    self.thumbTexture = thumb
+  end
+
+  function frame:GetThumbTexture()
+    return self.thumbTexture
   end
 
   function frame:GetText()

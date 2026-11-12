@@ -472,6 +472,27 @@ heightSlider.input.box:SetText("22")
 heightSlider.input.box.scripts.OnEnterPressed(heightSlider.input.box)
 equal(PerchDB.bar.height, 22, "height restored")
 
+-- Visibility regressions: a bare Slider draws nothing and an EditBox without a
+-- font never draws its text (the boxes looked empty in the client).
+local editBoxes, sliders, emptyBoxes = 0, 0, 0
+for _, frame in ipairs(Stub.frames) do
+  if frame.kind == "EditBox" then
+    editBoxes = editBoxes + 1
+    check(frame:FontIsSet(), "every edit box has a font")
+  elseif frame.kind == "Slider" then
+    sliders = sliders + 1
+    check(frame:GetThumbTexture() ~= nil, "every slider has a visible thumb")
+  end
+end
+check(editBoxes >= 7 and sliders >= 6, "options pages built their sliders and edit boxes")
+for _, widget in ipairs(P.optionWidgets) do
+  if widget.input and (widget.input.box:GetText() or "") == "" then
+    emptyBoxes = emptyBoxes + 1
+  end
+end
+equal(emptyBoxes, 0, "number boxes are initialised with their saved values")
+equal(heightSlider.input.box:GetText(), tostring(PerchDB.bar.height), "height box shows the saved height")
+
 -- Number boxes only take numbers, follow the slider live, and step on arrow/wheel.
 local heightBox = heightSlider.input.box
 heightBox:SetText("1a2b")
