@@ -143,3 +143,14 @@ the FPS source now prefers `GetFPS` and falls back to `GetFramerate`.
 - Tooltips after the callback fix, drag/save, UI scale 80%/120%, second
   character.
 - No `ADDON_ACTION_BLOCKED` while pulling a mob with command cells on the bar.
+
+### Options widgets (same build)
+
+- A bare `Slider` frame draws nothing: it needs a track and thumb texture.
+- An `EditBox` needs an explicit font or it draws no text.
+- `EditBox:SetText` leaves the cursor at the end. When the box is filled before
+  the Settings canvas is laid out (zero width), the text scrolls out of view to
+  the left; dragging in the box reveals it. Fix: `SetCursorPosition(0)` after
+  `SetText`, and again on `OnShow`/`OnSizeChanged`.
+- A `Button` only reports left clicks until `RegisterForClicks("AnyUp")`, so
+  LDB plugin right-click handlers never ran on broker cells.

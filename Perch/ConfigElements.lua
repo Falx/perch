@@ -178,5 +178,58 @@ P:RegisterPage({
         down:SetEnabled(index ~= nil and index < #keys)
       end,
     })
+
+    -- Settings of the built-in sources that have any. Right-clicking a built-in
+    -- on the bar opens this page with it selected.
+    local function onlyFor(key, widget, parts)
+      local base = widget.refresh
+      widget.refresh = function()
+        base()
+        local match = selectedKey() == key
+        for _, part in ipairs(parts) do
+          part:SetShown(match)
+        end
+      end
+      return track(widget)
+    end
+
+    local settingsHeader = UI.label(content, "", DETAIL_X, -350, "GameFontNormal")
+    track({
+      refresh = function()
+        local key = selectedKey()
+        local title = (key == "Perch_Clock" and "Clock settings") or (key == "Perch_Coords" and "Coordinate settings")
+        settingsHeader:SetText(title or "")
+      end,
+    })
+
+    local clock24 = UI.checkbox(content, "24-hour clock", DETAIL_X, -376, function()
+      return P.db.settings.clock24
+    end, function(value)
+      P.db.settings.clock24 = value
+      P:RefreshBuiltin("Perch_Clock")
+    end)
+    onlyFor("Perch_Clock", clock24, { clock24, clock24.label })
+
+    local clockLocal = UI.checkbox(content, "Use local time instead of server time", DETAIL_X, -406, function()
+      return P.db.settings.clockLocal
+    end, function(value)
+      P.db.settings.clockLocal = value
+      P:RefreshBuiltin("Perch_Clock")
+    end)
+    onlyFor("Perch_Clock", clockLocal, { clockLocal, clockLocal.label })
+
+    local decimals = UI.dropdown(content, "Coordinate decimals", DETAIL_X, -376, 120, function()
+      return {
+        { label = "0", value = 0 },
+        { label = "1", value = 1 },
+        { label = "2", value = 2 },
+      }
+    end, function()
+      return P.db.settings.coordDecimals or 1
+    end, function(value)
+      P.db.settings.coordDecimals = value
+      P:RefreshBuiltin("Perch_Coords")
+    end)
+    onlyFor("Perch_Coords", decimals, { decimals.label, decimals.button })
   end,
 })

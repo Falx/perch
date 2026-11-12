@@ -76,9 +76,26 @@ function UI.editbox(parent, x, y, width, getter, setter, options)
 
   local widget = { box = box }
 
+  -- SetText leaves the cursor at the end, and a box that has no size yet (the
+  -- Settings canvas is built before it is laid out) scrolls the text out of view
+  -- to the left. Always show the start of the text.
+  local function showFromStart()
+    if not box:HasFocus() then
+      box:SetCursorPosition(0)
+    end
+  end
+
+  widget.setText = function(text)
+    box:SetText(text)
+    showFromStart()
+  end
+
+  box:SetScript("OnShow", showFromStart)
+  box:SetScript("OnSizeChanged", showFromStart)
+
   widget.refresh = function()
     if not box:HasFocus() then
-      box:SetText(tostring(getter() or ""))
+      widget.setText(tostring(getter() or ""))
     end
   end
 
@@ -208,7 +225,7 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
 
   local function display(value)
     if not input.box:HasFocus() then
-      input.box:SetText(string.format(pattern, value))
+      input.setText(string.format(pattern, value))
     end
   end
 
@@ -625,6 +642,16 @@ function P:ShowOptionsFrame(pageId)
   end
   self:RefreshOptions()
   frame:Show()
+end
+
+-- Opens the Elements page with this element selected (right-click on a cell).
+function P:OpenElementSettings(key)
+  if not key then
+    return
+  end
+  self.selectedElement = key
+  self:RefreshOptions()
+  self:ToggleOptions("elements")
 end
 
 function P:ToggleOptions(pageId)

@@ -42,6 +42,9 @@ function P:CreateBrokerCell(name, obj)
   local cell = CreateFrame("Button", nil, self.bar)
   cell.brokerName = name
   cell.obj = obj
+  -- A Button only reports the left button by default; plugins (and the
+  -- built-ins) also want right-clicks.
+  cell:RegisterForClicks("AnyUp")
 
   cell.text = cell:CreateFontString(nil, "OVERLAY")
   self:ApplyCellFont(cell)

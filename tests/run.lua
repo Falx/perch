@@ -479,6 +479,9 @@ for _, frame in ipairs(Stub.frames) do
   if frame.kind == "EditBox" then
     editBoxes = editBoxes + 1
     check(frame:FontIsSet(), "every edit box has a font")
+    if not frame:HasFocus() then
+      equal(frame:GetCursorPosition(), 0, "an unfocused edit box shows the start of its text")
+    end
   elseif frame.kind == "Slider" then
     sliders = sliders + 1
     check(frame:GetThumbTexture() ~= nil, "every slider has a visible thumb")
@@ -642,6 +645,59 @@ check(not P:IsEnabled(goldKey), "Show checkbox hides the element")
 showFlag:SetChecked(true)
 showFlag.scripts.OnClick(showFlag)
 check(P:IsEnabled(goldKey), "Show checkbox shows the element again")
+
+-- Right-click on a built-in opens its settings; left-click leaves the options alone.
+local clockCell = P.brokerElements["Perch_Clock"]
+equal(clockCell.clicks and clockCell.clicks[1], "AnyUp", "broker cells register for right-clicks too")
+P.selectedElement = goldKey
+Stub.openedCategory = nil
+clockCell.scripts.OnClick(clockCell, "LeftButton")
+equal(Stub.openedCategory, nil, "left-clicking a built-in does not open the options")
+clockCell.scripts.OnClick(clockCell, "RightButton")
+equal(P.selectedElement, "Perch_Clock", "right-click selects the clicked element")
+equal(Stub.openedCategory, "Elements", "right-click opens the Elements page")
+
+local clock24 = findCheckbox("24-hour clock")
+local clockLocal = findCheckbox("Use local time")
+check(clock24 ~= nil and clockLocal ~= nil, "clock settings exist on the Elements page")
+check(clock24:IsShown() and clockLocal:IsShown(), "clock settings show while the clock is selected")
+equal(clockCell.text:GetText(), "2:32", "clock starts in 12-hour mode")
+clock24:SetChecked(true)
+clock24.scripts.OnClick(clock24)
+equal(PerchDB.settings.clock24, true, "24-hour toggle writes the setting")
+equal(clockCell.text:GetText(), "14:32", "the clock re-renders immediately")
+clock24:SetChecked(false)
+clock24.scripts.OnClick(clock24)
+equal(clockCell.text:GetText(), "2:32", "back to 12-hour")
+
+local decimalsDropdown
+for _, widget in ipairs(P.optionWidgets) do
+  if widget.button and widget.label and widget.label:GetText() == "Coordinate decimals" then
+    decimalsDropdown = widget
+  end
+end
+check(decimalsDropdown ~= nil, "coordinate settings exist on the Elements page")
+check(not decimalsDropdown.button:IsShown(), "coordinate settings are hidden while the clock is selected")
+check(not decimalsDropdown.label:IsShown(), "the coordinate label is hidden too")
+
+local coordsCell = P.brokerElements["Perch_Coords"]
+coordsCell.scripts.OnClick(coordsCell, "RightButton")
+equal(P.selectedElement, "Perch_Coords", "right-clicking coordinates selects them")
+check(decimalsDropdown.button:IsShown(), "coordinate settings show for the coordinates element")
+check(not clock24:IsShown(), "clock settings hide for other elements")
+decimalsDropdown.button.scripts.OnClick(decimalsDropdown.button)
+local twoRow
+for _, row in ipairs(P.UI.GetPicker().rows) do
+  if row:IsShown() and row.item.value == 2 then
+    twoRow = row
+  end
+end
+twoRow.scripts.OnClick(twoRow)
+equal(PerchDB.settings.coordDecimals, 2, "decimals dropdown writes the setting")
+PerchDB.settings.coordDecimals = 1
+P:RefreshBuiltin("Perch_Coords")
+P.selectedElement = goldKey
+P:RefreshOptions()
 
 -- Without the subcategory API every page sits behind tabs in one canvas.
 local realSubcategory = Settings.RegisterCanvasLayoutSubcategory

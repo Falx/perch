@@ -328,7 +328,20 @@ local function newFrame(kind, name, parent)
       error("FontString:SetText(): Font not set", 2)
     end
     self.text = text
+    if self.kind == "EditBox" then
+      -- The client leaves the cursor at the end; a narrow or unsized box then
+      -- scrolls the start of the text out of view.
+      self.cursor = #tostring(text)
+    end
     self.setTextCount = (self.setTextCount or 0) + 1
+  end
+
+  function frame:SetCursorPosition(position)
+    self.cursor = position
+  end
+
+  function frame:GetCursorPosition()
+    return self.cursor or 0
   end
 
   function frame:FontIsSet()

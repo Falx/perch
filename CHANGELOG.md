@@ -9,6 +9,10 @@ First working build.
 
 ### Added
 
+- Right-clicking a built-in element opens its settings: the Elements page with
+  that element selected. The page now has an "element settings" section for the
+  built-ins that have any: Clock (24-hour, local time) and Coordinates (decimals).
+
 - **Elements page:** a scrolling list of every element in bar order (hidden ones
   greyed) with a detail panel: show, icon, label and value checkboxes, a custom
   label input, and Move up / Move down buttons. Commands get label and icon
@@ -41,6 +45,12 @@ First working build.
 
 ### Fixed
 
+- Number boxes looked empty: the Settings canvas is built before it has a size, so
+  the client scrolled each box's text out of view (dragging in the box revealed
+  it). The cursor is now reset to the start whenever text is set, and when the box
+  is shown or resized.
+- Broker cells only received left-clicks. They now register for all buttons, so
+  plugin right-click handlers work too.
 - Option sliders were invisible (a bare `Slider` frame has no track or thumb)
   and their number boxes looked empty (an `EditBox` without a font never draws
   its text). Sliders now draw a track and thumb, and every input sets its font.

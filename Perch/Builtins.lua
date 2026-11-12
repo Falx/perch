@@ -14,6 +14,13 @@ local function newObject(key, label, icon)
     label = label,
     icon = icon,
     text = "",
+    -- Right-click opens this element's settings; plugin callbacks receive the
+    -- display cell first, then the mouse button.
+    OnClick = function(_, button)
+      if button == "RightButton" then
+        P:OpenElementSettings(key)
+      end
+    end,
   })
   object.__builtin = true
   objects[key] = object
@@ -182,6 +189,19 @@ local function updateXP()
   end
   local percent = current / maximum * 100
   P:SetBuiltinText("Perch_XP", string.format("%.0f%%", percent), percent)
+end
+
+local updaters = {
+  Perch_Clock = updateClock,
+  Perch_Coords = updateCoords,
+}
+
+-- Re-renders one built-in right away, e.g. after its settings changed.
+function P:RefreshBuiltin(key)
+  local update = updaters[key]
+  if update then
+    update()
+  end
 end
 
 local function updateAll()
