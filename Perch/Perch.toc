@@ -1,0 +1,22 @@
+## Interface: 16001
+## Title: Perch
+## Notes: A LibDataBroker info bar for WoW: Forever
+## Author: Falx
+## Version: 0.1.0
+## SavedVariables: PerchDB
+## OptionalDeps: LibDataBroker-1.1
+## X-Website: https://github.com/thomasdupont100/perch
+## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
+
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+
+Core.lua
+Bar.lua
+Element.lua
+Command.lua
+Broker.lua
+Builtins.lua
+Doctor.lua
+Config.lua
