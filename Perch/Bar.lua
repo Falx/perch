@@ -10,7 +10,10 @@ function P:CreateBar()
   bar:SetSize(1, db.height)
   bar:SetPoint(db.point or "TOP", UIParent, db.relativePoint or "TOP", db.x or 0, db.y or -8)
   bar:SetFrameStrata("LOW")
-  bar:SetClampedToScreen(true)
+  -- Not clamped: the bar can be moved partly or fully off the screen. The
+  -- command buttons follow a copy of its position, which is never clamped, so a
+  -- clamped bar would leave them behind. Reset position brings it back.
+  bar:SetClampedToScreen(false)
   bar:SetMovable(true)
   bar:EnableMouse(not db.clickThrough)
   bar:RegisterForDrag("LeftButton")

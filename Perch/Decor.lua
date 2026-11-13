@@ -46,11 +46,12 @@ local PROFILES = {
   curved2 = function(t)
     return math.sqrt(math.max(0, 1 - t * t))
   end,
-  -- An S-curve: almost horizontal where it leaves the top, down through the
-  -- middle, and almost horizontal again where it lands on the bottom corner.
+  -- An S-curve like a cube-root plot: shallow (nearly horizontal) where it
+  -- leaves the top and where it lands on the bottom corner, and straight down
+  -- through the middle. Width = (1 + (1 - 2t)^3) / 2.
   curved3 = function(t)
-    local ratio = math.max(-1, math.min(1, 1 - 2 * t))
-    return 0.5 + math.sin(math.asin(ratio) / 3)
+    local u = 1 - 2 * t
+    return 0.5 * (1 + u * u * u)
   end,
 }
 
@@ -129,11 +130,17 @@ local function drawCap(self, side, style, height, capWidth, borderSize, fill, bo
       end
     else
       -- The border has to cover the step to the neighbouring rows, or a shallow
-      -- slope would show gaps.
+      -- slope would show gaps. The cap's top and bottom edges are border all the
+      -- way across, like the bar's own top and bottom lines. Only the side that
+      -- touches the bar has none.
       local borderWidth = 0
       if borderSize > 0 then
-        local step = math.max(math.abs(total - (widths[row - 1] or total)), math.abs(total - (widths[row + 1] or total)))
-        borderWidth = math.max(1, math.min(total, math.max(borderSize, step)))
+        if row <= borderSize or row > height - borderSize then
+          borderWidth = total
+        else
+          local step = math.max(math.abs(total - (widths[row - 1] or total)), math.abs(total - (widths[row + 1] or total)))
+          borderWidth = math.max(1, math.min(total, math.max(borderSize, step)))
+        end
       end
       local fillWidth = total - borderWidth
       local y = -(row - 1)

@@ -1420,7 +1420,7 @@ P:SetAlignment("TOPRIGHT")
 local offsetX, offsetY = P.offsetBoxes.x, P.offsetBoxes.y
 check(offsetX ~= nil and offsetY ~= nil, "appearance has X and Y offset boxes")
 equal(offsetX.box:GetText(), "-8", "the X box shows the current offset")
-equal(offsetY.box:GetText(), tostring(math.floor(PerchDB.bar.y + 0.5)), "the Y box shows the current offset")
+equal(offsetY.box:GetText(), tostring(math.floor(-PerchDB.bar.y + 0.5)), "the Y box shows the current offset (counted downwards)")
 offsetX.box:SetText("25")
 offsetX.box.scripts.OnTextChanged(offsetX.box, true)
 equal(PerchDB.bar.x, 25, "typing an X offset moves the bar")
@@ -1448,8 +1448,25 @@ equal(PerchDB.bar.x, 5000, "in both directions")
 P:SetAlignment("TOP")
 offsetY.box:SetText("-40")
 offsetY.box.scripts.OnTextChanged(offsetY.box, true)
-equal(PerchDB.bar.y, -40, "typing a Y offset moves the bar")
+equal(PerchDB.bar.y, 40, "a negative Y moves the bar up")
+equal(select(5, P.bar:GetPoint()), 40, "the whole bar, in the game's upward offset")
+offsetY.box:SetText("30")
+offsetY.box.scripts.OnTextChanged(offsetY.box, true)
+equal(PerchDB.bar.y, -30, "a positive Y moves it down")
 equal(PerchDB.bar.alignment, "TOP", "the vertical offset keeps the alignment")
+offsetY.box.scripts.OnArrowPressed(offsetY.box, "UP")
+equal(PerchDB.bar.y, -31, "Up raises the shown number, which moves the bar down")
+
+-- The bar can go off the screen, and everything follows it.
+check(P.bar.clamped == false, "the bar is not clamped to the screen")
+offsetY.box:SetText("-200")
+offsetY.box.scripts.OnTextChanged(offsetY.box, true)
+equal(PerchDB.bar.y, 200, "a large negative Y puts the bar above the screen edge")
+equal(select(5, P.bar:GetPoint()), 200, "and the bar really is there")
+check(P.secureAnchor ~= nil and P.secureAnchor.clamped ~= true, "the command buttons' anchor is not clamped either")
+equal(select(5, P.secureAnchor:GetPoint()), 200, "so the command buttons are off the screen with it, not left behind")
+offsetY.box:SetText("8")
+offsetY.box.scripts.OnTextChanged(offsetY.box, true)
 offsetX.box:SetText("0")
 offsetX.box.scripts.OnTextChanged(offsetX.box, true)
 equal(PerchDB.bar.alignment, "TOP", "an offset equal to the preset margin keeps it")
@@ -1459,7 +1476,7 @@ P.bar:ClearAllPoints()
 P.bar:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 40, -12)
 P:SavePosition()
 equal(offsetX.box:GetText(), "40", "dragging updates the X box")
-equal(offsetY.box:GetText(), "-12", "and the Y box")
+equal(offsetY.box:GetText(), "12", "and the Y box (counted downwards)")
 P:SetAlignment("TOP")
 PerchDB.bar.y = -8
 P:RestorePosition()
@@ -1607,6 +1624,12 @@ for row = 2, 22 do
 end
 check(curved3[1] - curved3[4] > curved3[10] - curved3[13], "it falls quickly at the ends and levels out in the middle")
 check(curved3[19] - curved3[22] >= 2, "including near the bottom corner")
+for row = 1, 22 do
+  check(math.abs(curved3[row] + curved3[23 - row] - 10) <= 1, "curved 3 is point-symmetric like a cube-root plot (row " .. row .. ")")
+end
+for row = 9, 14 do
+  check(math.abs(curved3[row] - 5) <= 1, "and runs straight down through the middle (row " .. row .. ")")
+end
 PerchDB.bar.caps.width = 20
 P:ApplyAll()
 check(widthOfRow("left", 1) >= 17, "the cap width setting widens curved 3")
@@ -1650,6 +1673,35 @@ equal(rowsOf("left").fills[11].colorTexture[2], 0, "next to a fill in the backgr
 local fillPoint, borderPoint = rowsOf("left").fills[11].points[1], capBorder.points[1]
 equal(borderPoint[4], -rowsOf("left").fills[11].width, "the border part starts where the fill ends")
 equal(fillPoint[4], 0, "and the fill starts at the bar")
+
+-- The cap's top and bottom edges carry the border all the way across; only the
+-- side against the bar has none. Caps are as tall as the bar.
+local rows = rowsOf("left")
+check(rows.borders[1]:IsShown() and rows.borders[1].width == 22, "the cap's top edge is border across its whole width")
+check(not rows.fills[1]:IsShown(), "so the first row has no fill")
+check(rows.borders[22]:IsShown(), "and the bottom row is border too")
+check(rows.borders[11].width < rows.borders[1].width, "while the middle rows only have the slanted edge")
+equal(rows.fills[11].points[1][4], 0, "nothing is drawn on the side touching the bar")
+local shownRows = 0
+for row = 1, 40 do
+  local fill, border = rows.fills[row], rows.borders[row]
+  if (fill and fill:IsShown()) or (border and border:IsShown()) then
+    shownRows = shownRows + 1
+    check(row <= P.db.bar.height, "no cap row is below the bar")
+  end
+end
+equal(shownRows, P.db.bar.height, "the cap is exactly as tall as the bar")
+
+PerchDB.bar.border.size = 2
+PerchDB.bar.caps.left = "curved1"
+P:ApplyAll()
+rows = rowsOf("left")
+check(rows.borders[1].width == widthOfRow("left", 1) and rows.borders[2].width == widthOfRow("left", 2),
+  "a thicker border covers as many top rows as it is thick")
+check(rows.borders[21].width == widthOfRow("left", 21) and rows.borders[22].width == widthOfRow("left", 22),
+  "and as many bottom rows")
+PerchDB.bar.border.size = 1
+PerchDB.bar.caps.left = "triangle"
 PerchDB.bar.border.enabled = false
 
 -- A textured background cannot be matched by the caps.

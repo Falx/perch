@@ -552,7 +552,9 @@ local function newFrame(kind, name, parent)
 
   function frame:SetMovable() end
 
-  function frame:SetClampedToScreen() end
+  function frame:SetClampedToScreen(clamped)
+    self.clamped = clamped and true or false
+  end
 
   function frame:EnableMouse() end
 

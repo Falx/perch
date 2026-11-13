@@ -108,6 +108,15 @@ First working build.
 
 ### Fixed
 
+- The Y offset now counts downwards like a web page: a negative Y moves the whole
+  bar up. The bar is no longer clamped to the screen, so it can be moved partly or
+  fully off it; it used to stop at the edge while the command buttons (anchored to
+  an unclamped copy of its position) kept going, so only one label seemed to move.
+- Caps now carry the border along their top and bottom edges as well as the
+  slanted/curved one (never on the side against the bar), and are exactly as tall
+  as the bar.
+- Curved 3 is now a cube-root-style curve: shallow where it leaves the top and
+  where it lands on the bottom corner, straight down through the middle.
 - A picked background texture never showed: it was multiplied by the background
   colour, which is black by default, so every texture came out black. A textured
   background now shows in its own colours (the alpha still applies); a new

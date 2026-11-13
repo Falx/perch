@@ -106,15 +106,17 @@ P:RegisterPage({
 
     -- Pixel offsets from the anchor corner, filled in with where the bar is now
     -- (dragging updates them), for fine tuning.
-    local function offsetBox(title, x, key)
+    -- The screen counts Y downwards here (like a web page), so a negative Y moves
+    -- the bar up. The game's own offset counts upwards, hence the sign.
+    local function offsetBox(title, x, key, sign)
       UI.label(content, title, x, y, "GameFontHighlight")
       local box
       box = UI.editbox(content, x + 6, y - 20, 90, function()
-        return tostring(math.floor((P.db.bar[key] or 0) + 0.5))
+        return tostring(math.floor(sign * (P.db.bar[key] or 0) + 0.5))
       end, function(text)
         local number = tonumber(text)
         if number then
-          P:SetBarOffset(key, number)
+          P:SetBarOffset(key, sign * number)
         end
       end, {
         live = true,
@@ -122,18 +124,19 @@ P:RegisterPage({
         filter = signedWholeNumber,
         onArrow = function(direction)
           local typed = tonumber(box.box:GetText())
-          local value = P:SetBarOffset(key, (typed or P.db.bar[key] or 0) + direction)
-          box.setText(tostring(value))
+          local shown = typed or (sign * (P.db.bar[key] or 0))
+          local value = P:SetBarOffset(key, sign * (shown + direction))
+          box.setText(tostring(math.floor(sign * value + 0.5)))
         end,
       })
       P.offsetBoxes = P.offsetBoxes or {}
       P.offsetBoxes[key] = box
       return track(box)
     end
-    offsetBox("X offset (px)", 24, "x")
-    offsetBox("Y offset (px)", 150, "y")
+    offsetBox("X offset (px)", 24, "x", 1)
+    offsetBox("Y offset (px)", 150, "y", -1)
     y = y - 54
-    local offsetNote = UI.label(content, "Measured from the anchor corner. A negative Y moves the bar down.", 24, y, "GameFontDisableSmall")
+    local offsetNote = UI.label(content, "Measured from the anchor corner. A negative Y moves the bar up, even off the screen.", 24, y, "GameFontDisableSmall")
     offsetNote:SetWidth(380)
     offsetNote:SetJustifyH("LEFT")
     y = y - 26
