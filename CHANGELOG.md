@@ -115,9 +115,13 @@ First working build.
 - Caps now carry the border along their top and bottom edges as well as the
   slanted/curved one (never on the side against the bar), and are exactly as tall
   as the bar.
-- Curved 3 is now a sine half-wave: horizontal where it leaves the top and where
-  it lands on the bottom corner, steepest in the middle. A wide one looks like a
-  wave.
+- Curved 3 is an exaggerated sine half-wave: horizontal where it leaves the top and
+  where it lands on the bottom corner, steep through the middle (an even mix of a
+  sine and a sine of that sine). A wide one looks like a wave.
+- **Antialiased caps.** Cap edges are no longer stair-stepped: every row keeps its
+  exact fractional width, and the last pixel is drawn with the fraction it covers
+  as its alpha (in the border colour when there is a border). Pieces never
+  overlap, so translucent colours stay correct.
 - The end cap width now applies to every cap, including the Triangle and Curved 2
   (a quarter ellipse when it differs from the bar height). It defaults to the bar
   height, which makes the Triangle an exact 45 degree slope and Curved 2 a

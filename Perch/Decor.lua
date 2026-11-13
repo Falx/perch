@@ -48,12 +48,12 @@ local PROFILES = {
   curved2 = function(t)
     return math.sqrt(math.max(0, 1 - t * t))
   end,
-  -- A sine half-wave: horizontal where it leaves the top and where it lands on
-  -- the bottom corner, steepest in the middle. The row position follows
-  -- (1 - cos(pi * u)) / 2 across the cap, solved here for the width at each row.
+  -- A sine half-wave, exaggerated: horizontal where it leaves the top and where
+  -- it lands on the bottom corner, and steep through the middle. The row position
+  -- across the cap follows an even mix of one sine pass and a sine of that sine;
+  -- the width at each row is found by inverting it.
   curved3 = function(t)
-    local ratio = math.max(-1, math.min(1, 1 - 2 * t))
-    return 1 - math.acos(ratio) / math.pi
+    return P.CurvedThree(t)
   end,
 }
 
@@ -85,49 +85,95 @@ local function texture(self, key, layer, level)
   return piece
 end
 
--- Pixel widths of every row of one cap.
-local function rowWidths(style, side, height, width)
-  local widths = {}
-  for row = 1, height do
-    -- Sampled at the row's centre, except the triangle: its long side starts at
-    -- the full width on the top row.
-    local t = (row - 0.5) / height
-    if style == "triangle" then
-      t = (row - 1) / height
-    end
-    local share = PROFILES[style](t, side)
-    -- The epsilon keeps x.5 from rounding down: a triangle as wide as the bar is
-    -- high must step by exactly one pixel per row (45 degrees).
-    widths[row] = math.floor(width * share + 0.5 + 1e-9)
-  end
-  return widths
+-- The exaggerated sine for Curved 3. forward(u) is the row position (0 top .. 1
+-- bottom) reached at a share u across the cap from its outer end; it mixes a
+-- sine S-curve with a sine of that curve, which flattens the ends and steepens
+-- the middle. Returns the width share at row position t by inverting it.
+local EXAGGERATION = 0.5
+
+local function sineStep(u)
+  return (1 - math.cos(math.pi * u)) / 2
 end
 
+function P.CurvedThreeForward(u)
+  local once = sineStep(u)
+  return (1 - EXAGGERATION) * once + EXAGGERATION * sineStep(once)
+end
+
+function P.CurvedThree(t)
+  local low, high = 0, 1
+  for _ = 1, 40 do
+    local middle = (low + high) / 2
+    if P.CurvedThreeForward(middle) < t then
+      low = middle
+    else
+      high = middle
+    end
+  end
+  return 1 - (low + high) / 2
+end
+
+-- Exact (fractional) widths of every row of one cap, sampled at the row centres.
+-- Rounding them would give stair steps; the fraction is drawn as a partly
+-- transparent pixel instead.
+local function rowLengths(style, side, height, width)
+  local lengths = {}
+  for row = 1, height do
+    lengths[row] = width * PROFILES[style]((row - 0.5) / height, side)
+  end
+  return lengths
+end
+
+local function pieceFor(rows, kind, row, bar, layer)
+  local list = rows[kind]
+  local piece = list[row]
+  if not piece then
+    piece = bar:CreateTexture(nil, layer, nil, 0)
+    list[row] = piece
+  end
+  return piece
+end
+
+local function place(piece, innerPoint, bar, barPoint, x, y, width, color, alpha)
+  piece:ClearAllPoints()
+  piece:SetPoint(innerPoint, bar, barPoint, x, y)
+  piece:SetSize(width, 1)
+  piece:SetColorTexture(color[1], color[2], color[3], alpha)
+  piece:Show()
+end
+
+-- One row is up to three pieces side by side, from the bar outwards: the fill, the
+-- border, and one antialiasing pixel whose alpha is how much of it the edge
+-- covers. Nothing overlaps, so translucent colours never double up.
 local function drawCap(self, side, style, height, capWidth, borderSize, fill, border)
   local bar = self.bar
   local rows = self.decor.rows[side]
   if not rows then
-    rows = { fills = {}, borders = {} }
+    rows = { fills = {}, borders = {}, edges = {} }
     self.decor.rows[side] = rows
   end
 
-  local widths = style ~= "none" and rowWidths(style, side, height, capWidth) or {}
+  local lengths = style ~= "none" and rowLengths(style, side, height, capWidth) or {}
   -- The inner corner is the bar's own edge; the cap grows outwards.
   local innerPoint = side == "left" and "TOPRIGHT" or "TOPLEFT"
   local barPoint = side == "left" and "TOPLEFT" or "TOPRIGHT"
   local direction = side == "left" and -1 or 1
+  local outer = borderSize > 0 and border or fill
 
-  for row = 1, math.max(height, #rows.fills) do
-    local fillTexture, borderTexture = rows.fills[row], rows.borders[row]
-    local total = widths[row]
-    if not total or total <= 0 or row > height then
-      if fillTexture then
-        fillTexture:Hide()
-      end
-      if borderTexture then
-        borderTexture:Hide()
-      end
+  for row = 1, math.max(height, #rows.fills, #rows.edges) do
+    local exact = lengths[row]
+    local fillPiece = pieceFor(rows, "fills", row, bar, "BACKGROUND")
+    local borderPiece = pieceFor(rows, "borders", row, bar, "BORDER")
+    local edgePiece = pieceFor(rows, "edges", row, bar, "BORDER")
+
+    if not exact or exact <= 0.02 or row > height then
+      fillPiece:Hide()
+      borderPiece:Hide()
+      edgePiece:Hide()
     else
+      local whole = math.floor(exact + 1e-9)
+      local fraction = exact - whole
+
       -- The border has to cover the step to the neighbouring rows, or a shallow
       -- slope would show gaps. The cap's top and bottom edges are border all the
       -- way across, like the bar's own top and bottom lines. Only the side that
@@ -135,30 +181,24 @@ local function drawCap(self, side, style, height, capWidth, borderSize, fill, bo
       local borderWidth = 0
       if borderSize > 0 then
         if row <= borderSize or row > height - borderSize then
-          borderWidth = total
+          borderWidth = whole
         else
-          local step = math.max(math.abs(total - (widths[row - 1] or total)), math.abs(total - (widths[row + 1] or total)))
-          borderWidth = math.max(1, math.min(total, math.max(borderSize, step)))
+          local step = math.max(math.abs(exact - (lengths[row - 1] or exact)), math.abs(exact - (lengths[row + 1] or exact)))
+          borderWidth = math.min(whole, math.max(borderSize, math.ceil(step - 1e-9)))
         end
       end
-      local fillWidth = total - borderWidth
+      local fillWidth = whole - borderWidth
       local y = -(row - 1)
 
-      fillTexture = fillTexture or self.bar:CreateTexture(nil, "BACKGROUND", nil, 0)
-      rows.fills[row] = fillTexture
-      fillTexture:ClearAllPoints()
-      fillTexture:SetPoint(innerPoint, bar, barPoint, 0, y)
-      fillTexture:SetSize(math.max(fillWidth, 0), 1)
-      fillTexture:SetColorTexture(fill[1], fill[2], fill[3], fill[4])
-      fillTexture:SetShown(fillWidth > 0)
+      place(fillPiece, innerPoint, bar, barPoint, 0, y, math.max(fillWidth, 0), fill, fill[4])
+      fillPiece:SetShown(fillWidth > 0)
 
-      borderTexture = borderTexture or self.bar:CreateTexture(nil, "BORDER", nil, 0)
-      rows.borders[row] = borderTexture
-      borderTexture:ClearAllPoints()
-      borderTexture:SetPoint(innerPoint, bar, barPoint, direction * fillWidth, y)
-      borderTexture:SetSize(math.max(borderWidth, 0), 1)
-      borderTexture:SetColorTexture(border[1], border[2], border[3], border[4])
-      borderTexture:SetShown(borderWidth > 0)
+      place(borderPiece, innerPoint, bar, barPoint, direction * fillWidth, y, math.max(borderWidth, 0), border, border[4])
+      borderPiece:SetShown(borderWidth > 0)
+
+      place(edgePiece, innerPoint, bar, barPoint, direction * whole, y, 1, outer, outer[4] * fraction)
+      edgePiece.coverage = fraction
+      edgePiece:SetShown(fraction > 0.004)
     end
   end
 end

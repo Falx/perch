@@ -1551,9 +1551,12 @@ equal(P.bar.bg.points[1][4], 0, "and the background fills the bar")
 local function rowsOf(side)
   return P.decor.rows[side]
 end
-local function widthOfRow(side, row)
+
+-- How much of a row the cap covers, in pixels: the fill and border pieces plus
+-- the antialiasing pixel at the edge, counted by its coverage.
+local function coverage(side, row)
   local rows = rowsOf(side)
-  local fill, border = rows.fills[row], rows.borders[row]
+  local fill, border, edge = rows.fills[row], rows.borders[row], rows.edges[row]
   local total = 0
   if fill and fill:IsShown() then
     total = total + fill.width
@@ -1561,12 +1564,16 @@ local function widthOfRow(side, row)
   if border and border:IsShown() then
     total = total + border.width
   end
+  if edge and edge:IsShown() then
+    total = total + edge.coverage
+  end
   return total
 end
-local function widths(side)
+local widthOfRow = coverage
+local function coverages(side)
   local list = {}
   for row = 1, 22 do
-    list[row] = widthOfRow(side, row)
+    list[row] = coverage(side, row)
   end
   return list
 end
@@ -1576,71 +1583,111 @@ local function setCaps(left, right, width)
   PerchDB.bar.caps.width = width
   P:ApplyAll()
 end
+local function near(actual, expected, message)
+  -- 0.005: below that the antialiasing pixel is not drawn (less than one alpha step).
+  check(math.abs(actual - expected) < 0.005, message .. " (expected " .. expected .. ", got " .. actual .. ")")
+end
+
+local BAR_HEIGHT = 22
+local SHAPES = {
+  triangle = function(t)
+    return 1 - t
+  end,
+  curved1 = function(t)
+    local u = 2 * t - 1
+    return math.sqrt(1 - u * u)
+  end,
+  curved2 = function(t)
+    return math.sqrt(1 - t * t)
+  end,
+  -- Plain (not exaggerated) sine half-wave, to compare Curved 3 with.
+  sine = function(t)
+    return 1 - math.acos(1 - 2 * t) / math.pi
+  end,
+}
+local function expected(shape, width, row)
+  return width * SHAPES[shape]((row - 0.5) / BAR_HEIGHT)
+end
 
 equal(P.defaults.bar.caps.width, P.defaults.bar.height, "the default cap width is the default bar height")
 
 -- Triangle: a right triangle, widest at the top (the screen edge) and meeting the
--- bar's bottom corner. It is a 45 degree slope when the width equals the height.
+-- bar's bottom corner; a 45 degree slope when the width equals the height.
 setCaps("triangle", "triangle", 22)
 for row = 1, 22 do
-  equal(widthOfRow("left", row), 23 - row, "triangle row " .. row .. " narrows by one pixel per row (45 degrees)")
-  equal(widthOfRow("right", row), 23 - row, "the right triangle mirrors it (row " .. row .. ")")
+  near(coverage("left", row), 22.5 - row, "triangle row " .. row .. " covers its exact width")
+  near(coverage("right", row), 22.5 - row, "the right triangle mirrors it (row " .. row .. ")")
+end
+for row = 2, 22 do
+  near(coverage("left", row - 1) - coverage("left", row), 1, "one pixel per row, a 45 degree slope (row " .. row .. ")")
 end
 setCaps("triangle", "triangle", 30)
-equal(widthOfRow("left", 1), 30, "the cap width sets the triangle's width")
-equal(widthOfRow("left", 22), 1, "which still ends on the bar's bottom corner")
+near(coverage("left", 1), expected("triangle", 30, 1), "the cap width sets the triangle's width")
+near(coverage("left", 22), expected("triangle", 30, 22), "which ends on the bar's bottom corner")
+for row = 2, 22 do
+  near(coverage("left", row - 1) - coverage("left", row), 30 / 22, "the slope is perfectly even, with no stair steps (row " .. row .. ")")
+end
 setCaps("triangle", "triangle", 11)
-equal(widthOfRow("left", 1), 11, "a narrower triangle is steeper")
-check(widthOfRow("left", 1) - widthOfRow("left", 22) == 10, "narrowing evenly down the bar")
+near(coverage("left", 1), expected("triangle", 11, 1), "a narrower triangle is steeper")
 
--- Curved 1: the old semi-ellipse bulging out of the bar.
+-- Antialiasing: the fraction of the last pixel is drawn as a partly transparent
+-- pixel, in the background colour (no border), at the very edge of the row.
+setCaps("triangle", "none", 22)
+local row1 = rowsOf("left")
+equal(row1.fills[1].width, 21, "a row 21.5 pixels wide has 21 full pixels")
+check(row1.edges[1]:IsShown(), "and one antialiasing pixel")
+near(row1.edges[1].coverage, 0.5, "covering half of it")
+near(row1.edges[1].colorTexture[4], 0.25, "so it has half the background's alpha")
+equal(row1.edges[1].colorTexture[1], bg().color[1], "in the background colour")
+equal(row1.edges[1].width, 1, "one pixel wide")
+equal(row1.edges[1].points[1][4], -21, "right at the end of the full pixels")
+setCaps("triangle", "none", 30)
+check(rowsOf("left").edges[1].coverage > 0.02 and rowsOf("left").edges[1].coverage < 1, "a fractional width gets a fractional pixel")
+near(rowsOf("left").edges[1].colorTexture[4], 0.5 * rowsOf("left").edges[1].coverage, "with alpha in proportion")
+
+-- Curved 1: a semi-ellipse bulging out of the bar.
 setCaps("curved1", "none", 10)
-local curved1 = widths("left")
 for row = 1, 22 do
-  equal(curved1[row], curved1[23 - row], "curved 1 is symmetric top to bottom (row " .. row .. ")")
+  near(coverage("left", row), expected("curved1", 10, row), "curved 1 follows an ellipse (row " .. row .. ")")
+  near(coverage("left", row), coverage("left", 23 - row), "and is symmetric top to bottom (row " .. row .. ")")
 end
-check(curved1[11] >= 9 and curved1[1] <= 3, "curved 1 bulges to the cap width in the middle and is narrow at the ends")
 
--- Curved 2: a quarter circle centred on the bar's top corner, widest at the top
--- and landing on the bottom corner (a circle when the width equals the height).
+-- Curved 2: a quarter circle centred on the bar's top corner (an ellipse when the
+-- width differs from the height).
 setCaps("curved2", "none", 22)
-local curved2 = widths("left")
-equal(curved2[1], 22, "curved 2 starts a full radius out along the top")
-equal(curved2[11], 19, "and follows a circle (sqrt(22^2 - 10.5^2) is about 19)")
-check(curved2[22] >= 4 and curved2[22] <= 6, "to a narrow point at the bottom")
-for row = 2, 22 do
-  check(curved2[row] <= curved2[row - 1], "curved 2 never widens going down (row " .. row .. ")")
+for row = 1, 22 do
+  near(coverage("left", row), expected("curved2", 22, row), "curved 2 follows a circle (row " .. row .. ")")
 end
-local early = curved2[1] - curved2[6]
-local late = curved2[17] - curved2[22]
-check(late > early, "the arc is flat near the top and steep near the bottom, like a circle")
+for row = 2, 22 do
+  check(coverage("left", row) <= coverage("left", row - 1) + 1e-9, "curved 2 never widens going down (row " .. row .. ")")
+end
+local circleCurve = coverages("left")
+check(circleCurve[17] - circleCurve[22] > circleCurve[1] - circleCurve[6], "flat near the top, steep near the bottom, like a circle")
 setCaps("curved2", "none", 12)
-equal(widthOfRow("left", 1), 12, "the cap width sets curved 2's width too")
-check(widthOfRow("left", 11) >= 10 and widthOfRow("left", 11) <= 11, "scaling the circle into an ellipse")
+near(coverage("left", 1), expected("curved2", 12, 1), "the cap width sets curved 2's width too")
+near(coverage("left", 11), expected("curved2", 12, 11), "scaling the circle into an ellipse")
 
--- Curved 3: a sine half-wave, horizontal at both ends, steepest in the middle.
-setCaps("curved3", "none", 10)
-local curved3 = widths("left")
-check(curved3[1] >= 8 and curved3[1] <= 10, "curved 3 starts near the full cap width at the top")
-check(curved3[11] >= 4 and curved3[11] <= 6, "is about half way across in the middle")
-check(curved3[22] <= 2, "and lands on the bottom corner")
-for row = 2, 22 do
-  check(curved3[row] <= curved3[row - 1], "curved 3 never widens going down (row " .. row .. ")")
-end
-for row = 1, 22 do
-  check(math.abs(curved3[row] + curved3[23 - row] - 10) <= 1, "curved 3 is point-symmetric like a sine wave (row " .. row .. ")")
-end
--- The profile of a sine half-wave: row = (1 - cos(pi * u)) / 2 across the cap.
+-- Curved 3: an exaggerated sine half-wave, horizontal at both ends and steep in
+-- the middle.
 setCaps("curved3", "none", 40)
-local wide3 = widths("left")
+local curved3 = coverages("left")
 for row = 1, 22 do
-  local t = (row - 0.5) / 22
-  local expected = 40 * (1 - math.acos(1 - 2 * t) / math.pi)
-  check(math.abs(wide3[row] - expected) <= 0.51, "curved 3 follows the sine profile (row " .. row .. ")")
+  near(curved3[row], 40 * P.CurvedThree((row - 0.5) / 22), "curved 3 follows its profile (row " .. row .. ")")
+  near(curved3[row] + curved3[23 - row], 40, "and is point-symmetric like a sine wave (row " .. row .. ")")
 end
-check(wide3[1] - wide3[2] > wide3[11] - wide3[12], "a wide curved 3 flattens out at the ends, like the top of a wave")
+for row = 2, 22 do
+  check(curved3[row] <= curved3[row - 1] + 1e-9, "curved 3 never widens going down (row " .. row .. ")")
+end
+for _, t in ipairs({ 0.05, 0.2, 0.5, 0.8, 0.95 }) do
+  near(P.CurvedThreeForward(1 - P.CurvedThree(t)), t, "the curve inverts exactly (t = " .. t .. ")")
+end
+local sineEnds = 40 * (SHAPES.sine(0.5 / 22) - SHAPES.sine(1.5 / 22))
+local sineMiddle = 40 * (SHAPES.sine(9.5 / 22) - SHAPES.sine(12.5 / 22))
+check(curved3[1] - curved3[2] > sineEnds, "the ends are flatter than a plain sine (more width change per row)")
+check(curved3[10] - curved3[13] < sineMiddle, "and the middle is steeper than a plain sine")
+check(curved3[1] > 30 and curved3[22] < 10, "while it still starts out wide at the top and ends narrow at the bottom corner")
 setCaps("curved3", "none", 20)
-check(widthOfRow("left", 1) >= 17, "the cap width setting widens curved 3")
+check(coverage("left", 1) >= 16, "the cap width setting widens curved 3")
 
 -- Old style names and the old default width carry over.
 PerchDB.bar.caps.left = "curved"
@@ -1675,28 +1722,29 @@ PerchDB.bar.border.size = 1
 PerchDB.bar.border.color = { 0, 1, 0, 1 }
 setCaps("triangle", "none", 22)
 for row = 1, 22 do
-  equal(widthOfRow("left", row), 23 - row, "the capped border keeps the triangle's shape (row " .. row .. ")")
+  near(coverage("left", row), 22.5 - row, "the capped border keeps the triangle's shape (row " .. row .. ")")
 end
-local capBorder = rowsOf("left").borders[11]
+local rows = rowsOf("left")
+local capBorder = rows.borders[11]
 check(capBorder:IsShown() and capBorder.width >= 1, "the cap has a border part")
 equal(capBorder.colorTexture[2], 1, "in the border colour")
-equal(rowsOf("left").fills[11].colorTexture[2], 0, "next to a fill in the background colour")
-local fillPoint, borderPoint = rowsOf("left").fills[11].points[1], capBorder.points[1]
-equal(borderPoint[4], -rowsOf("left").fills[11].width, "the border part starts where the fill ends")
-equal(fillPoint[4], 0, "and the fill starts at the bar")
+equal(rows.fills[11].colorTexture[2], 0, "next to a fill in the background colour")
+equal(capBorder.points[1][4], -rows.fills[11].width, "the border part starts where the fill ends")
+equal(rows.fills[11].points[1][4], 0, "and the fill starts at the bar")
+equal(rows.edges[11].colorTexture[2], 1, "the antialiasing pixel is in the border colour")
+near(rows.edges[11].colorTexture[4], 0.5, "with the border's alpha scaled by the coverage")
 
 -- The cap's top and bottom edges carry the border all the way across; only the
 -- side against the bar has none. Caps are as tall as the bar.
-local rows = rowsOf("left")
-check(rows.borders[1]:IsShown() and rows.borders[1].width == 22, "the cap's top edge is border across its whole width")
+check(rows.borders[1]:IsShown() and rows.borders[1].width == 21, "the cap's top edge is border across its whole width")
 check(not rows.fills[1]:IsShown(), "so the first row has no fill")
-check(rows.borders[22]:IsShown(), "and the bottom row is border too")
+check(rows.edges[22]:IsShown() and rows.edges[22].colorTexture[2] == 1, "and the bottom row is border too")
 check(rows.borders[11].width < rows.borders[1].width, "while the middle rows only have the slanted edge")
 equal(rows.fills[11].points[1][4], 0, "nothing is drawn on the side touching the bar")
 local shownRows = 0
 for row = 1, 40 do
-  local fill, border = rows.fills[row], rows.borders[row]
-  if (fill and fill:IsShown()) or (border and border:IsShown()) then
+  local fill, border, edge = rows.fills[row], rows.borders[row], rows.edges[row]
+  if (fill and fill:IsShown()) or (border and border:IsShown()) or (edge and edge:IsShown()) then
     shownRows = shownRows + 1
     check(row <= P.db.bar.height, "no cap row is below the bar")
   end
@@ -1706,9 +1754,11 @@ equal(shownRows, P.db.bar.height, "the cap is exactly as tall as the bar")
 PerchDB.bar.border.size = 2
 setCaps("curved1", "none", 10)
 rows = rowsOf("left")
-check(rows.borders[1].width == widthOfRow("left", 1) and rows.borders[2].width == widthOfRow("left", 2),
+check(rows.borders[1].width == math.floor(expected("curved1", 10, 1) + 1e-9)
+  and rows.borders[2].width == math.floor(expected("curved1", 10, 2) + 1e-9),
   "a thicker border covers as many top rows as it is thick")
-check(rows.borders[21].width == widthOfRow("left", 21) and rows.borders[22].width == widthOfRow("left", 22),
+check(rows.borders[21].width == math.floor(expected("curved1", 10, 21) + 1e-9)
+  and rows.borders[22].width == math.floor(expected("curved1", 10, 22) + 1e-9),
   "and as many bottom rows")
 PerchDB.bar.border.size = 1
 PerchDB.bar.border.enabled = false
