@@ -45,6 +45,9 @@ local defaults = {
       size = 12,
       color = { 1, 1, 1, 1 },
       outline = "",
+      -- Vertical correction for fonts whose glyphs do not sit on the middle of
+      -- their line box. Positive moves the labels down.
+      nudgeY = 0,
     },
     iconSize = 14,
     showIcons = true,
@@ -237,6 +240,10 @@ function P:ElementOption(key, field)
     return value
   end
   if field == "label" then
+    return nil
+  end
+  if field == "fontSize" then
+    -- No override: the element follows the bar's font size.
     return nil
   end
   if field == "iconSource" then

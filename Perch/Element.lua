@@ -3,21 +3,37 @@ P = _G.Perch
 
 local ICON_TEXT_PADDING = 4
 
-local function fontSignature(font)
-  return string.format("%s|%s|%s", tostring(font.name), tostring(font.size), tostring(font.outline))
+local function fontSignature(font, size)
+  return string.format("%s|%s|%s", tostring(font.name), tostring(size), tostring(font.outline))
+end
+
+-- The key an element's options are stored under, whatever kind of cell it is.
+function P:CellKey(cell)
+  return cell.commandKey or cell.minimapKey or cell.brokerName
+end
+
+-- A cell uses its element's own font size when it has one, else the bar's.
+function P:CellFontSize(cell)
+  local key = self:CellKey(cell)
+  local size = key and self:ElementOption(key, "fontSize")
+  if type(size) ~= "number" then
+    return self.db.bar.font.size
+  end
+  return size
 end
 
 -- The client raises "FontString:SetText(): Font not set" when text is assigned
 -- before a font exists, so every text write goes through this first.
 function P:ApplyCellFont(cell)
   local font = self.db.bar.font
-  local signature = fontSignature(font)
+  local size = self:CellFontSize(cell)
+  local signature = fontSignature(font, size)
   if cell.fontSignature ~= signature then
     -- A font path that does not resolve leaves the string without a font, and
     -- the next SetText would raise. Fall back to the default in that case.
-    local ok, applied = pcall(cell.text.SetFont, cell.text, font.name, font.size, font.outline or "")
+    local ok, applied = pcall(cell.text.SetFont, cell.text, font.name, size, font.outline or "")
     if not (ok and applied) then
-      cell.text:SetFont(P.DEFAULT_FONT, font.size, font.outline or "")
+      cell.text:SetFont(P.DEFAULT_FONT, size, font.outline or "")
     end
     cell.fontSignature = signature
   end
@@ -212,7 +228,8 @@ function P:SizeCell(cell)
   end
 
   cell.text:ClearAllPoints()
-  cell.text:SetPoint("LEFT", cell, "LEFT", offset, 0)
+  -- nudgeY is the user's correction for fonts whose glyphs sit too high or low.
+  cell.text:SetPoint("LEFT", cell, "LEFT", offset, font.nudgeY or 0)
   -- A label as tall as the cell, centred in it: the line box and the icon then
   -- share one centre line, whatever the font's own spacing.
   cell.text:SetJustifyV("MIDDLE")

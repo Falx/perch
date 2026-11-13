@@ -449,6 +449,56 @@ equal(P.brokerElements["Perch_Clock"].text.fontPath, P.DEFAULT_FONT,
 PerchDB.bar.font.name = "Fonts\\FRIZQT__.TTF"
 P:ApplyAll()
 
+-- A font Y offset nudges every label, whatever kind of cell it is.
+local function allCellTexts()
+  local list = {}
+  for _, key in ipairs(P:AllKeys()) do
+    local cell = P:GetCell(key)
+    if cell and cell.text and P:IsEnabled(key) then
+      list[#list + 1] = { key = key, cell = cell }
+    end
+  end
+  return list
+end
+PerchDB.bar.font.nudgeY = 3
+P:ApplyAll()
+local nudged = allCellTexts()
+check(#nudged >= 3, "there are labels to nudge")
+for _, entry in ipairs(nudged) do
+  equal(entry.cell.text.points[1][5], 3, entry.key .. " label is nudged down by 3")
+end
+PerchDB.bar.font.nudgeY = -2
+P:ApplyAll()
+equal(goldCell.text.points[1][5], -2, "a negative offset lifts the labels")
+PerchDB.bar.font.nudgeY = 0
+P:ApplyAll()
+equal(goldCell.text.points[1][5], 0, "zero puts them back on the centre line")
+
+-- The Appearance page has the matching number box and a Default button.
+local nudgeBox = P.fontNudgeBox
+check(nudgeBox ~= nil and P.fontNudgeDefault ~= nil, "appearance has a font Y offset box and Default button")
+equal(nudgeBox.box:GetText(), "0", "the box shows the current offset")
+nudgeBox.box:SetText("5")
+nudgeBox.box.scripts.OnTextChanged(nudgeBox.box, true)
+equal(PerchDB.bar.font.nudgeY, 5, "typing an offset applies it live")
+equal(goldCell.text.points[1][5], 5, "and moves the labels")
+nudgeBox.box:SetText("-4")
+nudgeBox.box.scripts.OnTextChanged(nudgeBox.box, true)
+equal(PerchDB.bar.font.nudgeY, -4, "the box accepts negative offsets")
+nudgeBox.box:SetText("-")
+nudgeBox.box.scripts.OnTextChanged(nudgeBox.box, true)
+equal(PerchDB.bar.font.nudgeY, -4, "a lone minus sign is not applied")
+nudgeBox.box:SetText("5")
+nudgeBox.box.scripts.OnTextChanged(nudgeBox.box, true)
+nudgeBox.box.scripts.OnArrowPressed(nudgeBox.box, "DOWN")
+equal(PerchDB.bar.font.nudgeY, 4, "the arrow keys nudge by one pixel")
+nudgeBox.box.scripts.OnArrowPressed(nudgeBox.box, "UP")
+equal(PerchDB.bar.font.nudgeY, 5, "in both directions")
+P.fontNudgeDefault.scripts.OnClick(P.fontNudgeDefault)
+equal(PerchDB.bar.font.nudgeY, 0, "Default resets the offset")
+equal(nudgeBox.box:GetText(), "0", "and updates the box")
+equal(goldCell.text.points[1][5], 0, "and the labels are back on the centre line")
+
 -- Sliders have a typeable number box next to them, not just a label.
 local heightSlider
 for _, widget in ipairs(P.optionWidgets) do
@@ -463,11 +513,12 @@ heightSlider.input.box.scripts.OnEnterPressed(heightSlider.input.box)
 equal(PerchDB.bar.height, 30, "typing a value applies it")
 heightSlider.input.box:SetText("500")
 heightSlider.input.box.scripts.OnEnterPressed(heightSlider.input.box)
-equal(PerchDB.bar.height, 40, "typed values are clamped to the slider maximum")
+equal(PerchDB.bar.height, 500, "typed values can go beyond the slider maximum")
+equal(heightSlider:GetValue(), 40, "the thumb waits at the end of the track")
 heightSlider.input.box:SetText("abc")
 heightSlider.input.box.scripts.OnEnterPressed(heightSlider.input.box)
-equal(PerchDB.bar.height, 40, "a non-number is ignored")
-equal(heightSlider.input.box:GetText(), "40", "the input reverts after a bad value")
+equal(PerchDB.bar.height, 500, "a non-number is ignored")
+equal(heightSlider.input.box:GetText(), "500", "the input reverts after a bad value")
 heightSlider.input.box:SetText("22")
 heightSlider.input.box.scripts.OnEnterPressed(heightSlider.input.box)
 equal(PerchDB.bar.height, 22, "height restored")
@@ -501,16 +552,21 @@ local heightBox = heightSlider.input.box
 heightBox:SetText("1a2b")
 heightBox.scripts.OnTextChanged(heightBox, true)
 equal(heightBox:GetText(), "12", "letters are stripped from a number box")
-equal(PerchDB.bar.height, 22, "an out-of-range partial value is not applied while typing")
+equal(PerchDB.bar.height, 12, "a typed value applies even below the slider minimum")
+equal(heightSlider:GetValue(), 14, "the thumb waits at the near end of the track")
 heightBox:SetText("1.5")
 heightBox.scripts.OnTextChanged(heightBox, true)
 equal(heightBox:GetText(), "15", "an integer box rejects a decimal point")
-equal(PerchDB.bar.height, 15, "a valid in-range value applies while typing")
+equal(PerchDB.bar.height, 15, "a valid value applies while typing")
 equal(heightSlider:GetValue(), 15, "the slider thumb follows the typed value")
 heightBox:SetText("12")
 heightBox.scripts.OnEnterPressed(heightBox)
-equal(PerchDB.bar.height, 14, "Enter clamps a too-small value to the minimum")
+equal(PerchDB.bar.height, 12, "Enter keeps a typed value below the minimum")
 
+heightBox.scripts.OnArrowPressed(heightBox, "UP")
+equal(PerchDB.bar.height, 13, "Up arrow steps back towards the range")
+heightBox.scripts.OnArrowPressed(heightBox, "UP")
+equal(PerchDB.bar.height, 14, "one step at a time")
 heightBox.scripts.OnArrowPressed(heightBox, "UP")
 equal(PerchDB.bar.height, 15, "Up arrow raises the value by one step")
 heightBox.scripts.OnArrowPressed(heightBox, "DOWN")
@@ -521,6 +577,13 @@ heightSlider.scripts.OnMouseWheel(heightSlider, 1)
 equal(PerchDB.bar.height, 15, "mouse wheel up raises the value")
 heightSlider.scripts.OnMouseWheel(heightSlider, -1)
 equal(PerchDB.bar.height, 14, "mouse wheel down lowers the value")
+heightBox:SetText("60")
+heightBox.scripts.OnEnterPressed(heightBox)
+equal(PerchDB.bar.height, 60, "a value above the maximum is kept too")
+heightSlider.scripts.OnMouseWheel(heightSlider, -1)
+equal(PerchDB.bar.height, 59, "the wheel walks back from beyond the range one step at a time")
+heightSlider.scripts.OnMouseWheel(heightSlider, 1)
+equal(PerchDB.bar.height, 60, "and forward again")
 heightBox:SetText("22")
 heightBox.scripts.OnEnterPressed(heightBox)
 equal(PerchDB.bar.height, 22, "height restored again")
@@ -622,6 +685,39 @@ P:SetElementOption("cmd:Reload", "label", "RL")
 P:SetElementOption("cmd:Reload", "showLabel", true)
 equal(reloadCell.text:GetText(), "RL", "command shows its custom label")
 P:SetElementOption("cmd:Reload", "label", "")
+
+-- A per-element font size, set from the Elements page.
+P.selectedElement = goldKey
+P:RefreshOptions()
+local elementFont = P.elementFontSlider
+check(elementFont ~= nil and elementFont.defaultButton ~= nil, "the elements page has a font size slider with a Default button")
+equal(elementFont.input.box:GetText(), tostring(PerchDB.bar.font.size), "it starts at the bar's font size")
+check(not elementFont.defaultButton:IsEnabled(), "Default is greyed out while the element follows the bar")
+elementFont.input.box:SetText("18")
+elementFont.input.box.scripts.OnEnterPressed(elementFont.input.box)
+equal(PerchDB.elements[goldKey].fontSize, 18, "typing stores the element's own font size")
+equal(goldCell.text.fontSize, 18, "the element's label uses it")
+equal(PerchDB.bar.font.size, P.defaults.bar.font.size, "the bar's font size is untouched")
+equal(P.brokerElements["Perch_Clock"].text.fontSize, PerchDB.bar.font.size, "other elements keep the bar's size")
+check(elementFont.defaultButton:IsEnabled(), "Default is enabled once the element overrides the size")
+
+elementFont.input.box:SetText("30")
+elementFont.input.box.scripts.OnEnterPressed(elementFont.input.box)
+equal(goldCell.text.fontSize, 30, "a manual size may go beyond the slider range")
+equal(elementFont:GetValue(), 24, "while the thumb waits at the end")
+
+P:SetElementOption("cmd:Reload", "fontSize", 20)
+equal(reloadCell.text.fontSize, 20, "a command can have its own font size")
+P:SetElementOption("cmd:Reload", "fontSize", nil)
+equal(reloadCell.text.fontSize, PerchDB.bar.font.size, "clearing it puts the command back on the bar's size")
+
+P.selectedElement = goldKey
+P:RefreshOptions()
+elementFont.defaultButton.scripts.OnClick(elementFont.defaultButton)
+equal(PerchDB.elements[goldKey].fontSize, nil, "Default clears the element's override")
+equal(goldCell.text.fontSize, PerchDB.bar.font.size, "and the label follows the bar again")
+equal(elementFont.input.box:GetText(), tostring(PerchDB.bar.font.size), "the box shows the bar's size")
+check(not elementFont.defaultButton:IsEnabled(), "Default is greyed out again")
 
 local orderBefore = P:AllKeys()
 local firstKey, secondKey = orderBefore[1], orderBefore[2]

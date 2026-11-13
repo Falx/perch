@@ -140,8 +140,38 @@ P:RegisterPage({
       P:SetElementOption(key, "showValue", value)
     end, isBroker))
 
-    UI.label(content, "Custom label", DETAIL_X, -214, "GameFontHighlight")
-    local labelBox = track(UI.editbox(content, DETAIL_X + 6, -234, 220, function()
+    -- A per-element font size. Default clears the override, so the element
+    -- follows the bar's font size again.
+    local elementFont = UI.slider(content, "Font size", DETAIL_X, -218, 8, 24, 1, function()
+      local key = selectedKey()
+      local size = key and P:ElementOption(key, "fontSize")
+      return size or P.db.bar.font.size
+    end, function(value)
+      local key = selectedKey()
+      if key then
+        P:SetElementOption(key, "fontSize", value)
+      end
+    end, "%.0f", nil, {
+      width = 180,
+      inputOffset = 190,
+      isDefault = function()
+        local key = selectedKey()
+        return key == nil or P:ElementOption(key, "fontSize") == nil
+      end,
+      onDefault = function()
+        local key = selectedKey()
+        if key then
+          P:SetElementOption(key, "fontSize", nil)
+        end
+      end,
+    })
+    P.elementFontSlider = track(elementFont)
+    local fontNote = UI.label(content, "This element only. Default clears the override.", DETAIL_X, -240, "GameFontDisableSmall")
+    fontNote:SetWidth(300)
+    fontNote:SetJustifyH("LEFT")
+
+    UI.label(content, "Custom label", DETAIL_X, -268, "GameFontHighlight")
+    local labelBox = track(UI.editbox(content, DETAIL_X + 6, -288, 220, function()
       local key = selectedKey()
       return key and P:ElementOption(key, "label") or ""
     end, function(text)
@@ -151,15 +181,15 @@ P:RegisterPage({
       end
     end, { live = true, maxLetters = 24 }))
     P.elementLabelBox = labelBox
-    UI.label(content, "Shown when Label is ticked. Empty uses the default.", DETAIL_X, -262, "GameFontDisableSmall")
+    UI.label(content, "Shown when Label is ticked. Empty uses the default.", DETAIL_X, -316, "GameFontDisableSmall")
 
-    local up = UI.button(content, "Move up", DETAIL_X, -300, function()
+    local up = UI.button(content, "Move up", DETAIL_X, -354, function()
       local key = selectedKey()
       if key then
         P:MoveElement(key, -1)
       end
     end, 105)
-    local down = UI.button(content, "Move down", DETAIL_X + 115, -300, function()
+    local down = UI.button(content, "Move down", DETAIL_X + 115, -354, function()
       local key = selectedKey()
       if key then
         P:MoveElement(key, 1)
@@ -216,7 +246,7 @@ P:RegisterPage({
       Perch_Gold = "Gold settings",
       Perch_XP = "Experience settings",
     }
-    local settingsHeader = UI.label(content, "", DETAIL_X, -350, "GameFontNormal")
+    local settingsHeader = UI.label(content, "", DETAIL_X, -404, "GameFontNormal")
     track({
       refresh = function()
         local key = selectedKey()
@@ -231,7 +261,7 @@ P:RegisterPage({
     })
 
     -- Clock
-    local clock24 = UI.checkbox(content, "24-hour clock", DETAIL_X, -376, function()
+    local clock24 = UI.checkbox(content, "24-hour clock", DETAIL_X, -430, function()
       return P.db.settings.clock24
     end, function(value)
       P.db.settings.clock24 = value
@@ -239,7 +269,7 @@ P:RegisterPage({
     end)
     showWhen(isSelected("Perch_Clock"), clock24, { clock24, clock24.label })
 
-    local clockLocal = UI.checkbox(content, "Use local time instead of server time", DETAIL_X, -406, function()
+    local clockLocal = UI.checkbox(content, "Use local time instead of server time", DETAIL_X, -460, function()
       return P.db.settings.clockLocal
     end, function(value)
       P.db.settings.clockLocal = value
@@ -248,7 +278,7 @@ P:RegisterPage({
     showWhen(isSelected("Perch_Clock"), clockLocal, { clockLocal, clockLocal.label })
 
     -- Coordinates
-    local decimals = UI.dropdown(content, "Coordinate decimals", DETAIL_X, -376, 120, function()
+    local decimals = UI.dropdown(content, "Coordinate decimals", DETAIL_X, -430, 120, function()
       return {
         { label = "0", value = 0 },
         { label = "1", value = 1 },
@@ -269,7 +299,7 @@ P:RegisterPage({
         return P.db.settings[formatKey] == "custom"
       end
 
-      local preset = UI.dropdown(content, title, DETAIL_X, -376, 240, function()
+      local preset = UI.dropdown(content, title, DETAIL_X, -430, 240, function()
         return P:PresetItems(presets)
       end, function()
         return P.db.settings[formatKey]
@@ -280,10 +310,10 @@ P:RegisterPage({
       end)
       showWhen(isSelected(key), preset, { preset.label, preset.button })
 
-      local customLabel = UI.label(content, "Custom format", DETAIL_X, -430, "GameFontHighlight")
+      local customLabel = UI.label(content, "Custom format", DETAIL_X, -484, "GameFontHighlight")
       showWhen(isSelected(key, isCustom), { refresh = function() end }, { customLabel })
 
-      local custom = UI.editbox(content, DETAIL_X + 6, -450, 260, function()
+      local custom = UI.editbox(content, DETAIL_X + 6, -504, 260, function()
         return P.db.settings[customKey]
       end, function(text)
         P.db.settings[customKey] = text
@@ -291,7 +321,7 @@ P:RegisterPage({
       end, { live = true, maxLetters = 60 })
       showWhen(isSelected(key, isCustom), custom, { custom.box })
 
-      local codesNote = note("Codes: " .. codes, -482)
+      local codesNote = note("Codes: " .. codes, -536)
       showWhen(isSelected(key), { refresh = function() end }, { codesNote })
     end
 
@@ -318,8 +348,8 @@ P:RegisterPage({
       P:RefreshOptions()
     end, 130)
 
-    local nameLabel = UI.label(content, "Name", DETAIL_X, -376, "GameFontHighlight")
-    local nameBox = UI.editbox(content, DETAIL_X + 6, -396, 200, function()
+    local nameLabel = UI.label(content, "Name", DETAIL_X, -430, "GameFontHighlight")
+    local nameBox = UI.editbox(content, DETAIL_X + 6, -450, 200, function()
       local command = selectedCommand()
       return command and command.name or ""
     end, function(text)
@@ -330,8 +360,8 @@ P:RegisterPage({
       P:RefreshOptions()
     end, { maxLetters = 24 })
 
-    local macroLabel = UI.label(content, "Macro", DETAIL_X, -426, "GameFontHighlight")
-    local macroBox = UI.editbox(content, DETAIL_X + 6, -446, 290, function()
+    local macroLabel = UI.label(content, "Macro", DETAIL_X, -480, "GameFontHighlight")
+    local macroBox = UI.editbox(content, DETAIL_X + 6, -500, 290, function()
       local command = selectedCommand()
       return command and command.macrotext or ""
     end, function(text)
@@ -343,12 +373,12 @@ P:RegisterPage({
     end, { maxLetters = 255 })
     P.elementCommandBoxes = { name = nameBox, macro = macroBox }
 
-    local macroNote = note("One line, like a macro: /cast, /use, /click or an addon's slash command. Press Enter to apply.", -474)
+    local macroNote = note("One line, like a macro: /cast, /use, /click or an addon's slash command. Press Enter to apply.", -528)
 
     -- Two clicks, so a stray click cannot delete a command.
     local removeButton
     local armed
-    removeButton = UI.button(content, "Remove command", DETAIL_X, -516, function()
+    removeButton = UI.button(content, "Remove command", DETAIL_X, -570, function()
       local command = selectedCommand()
       if not command then
         return
@@ -403,11 +433,11 @@ P:RegisterPage({
       showWhen(isMinimap, dropdown, { dropdown.label, dropdown.button })
     end
 
-    iconDropdown("Icon source", -376, "iconSource", P.MINIMAP_ICON_SOURCES)
-    iconDropdown("Icon crop", -432, "iconCrop", P.MINIMAP_ICON_CROPS)
+    iconDropdown("Icon source", -430, "iconSource", P.MINIMAP_ICON_SOURCES)
+    iconDropdown("Icon crop", -486, "iconCrop", P.MINIMAP_ICON_CROPS)
     local iconNote = note(
       "If the icon looks wrong, try another source. 'All layers' stacks every picture the button is made of.",
-      -488
+      -542
     )
     showWhen(isMinimap, { refresh = function() end }, { iconNote })
   end,

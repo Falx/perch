@@ -18,20 +18,29 @@ First working build.
   An unknown or hidden choice falls back to the normal layout.
 - Every label is now explicitly centred vertically in a cell as tall as the bar,
   so icons and labels (broker, command, minimap) share the bar's centre line.
+- **Font Y offset** (Appearance > Size and text). A number box (with a Default
+  button) nudges every label and value up or down, for fonts whose glyphs do not
+  sit on the middle of their line box. Icons stay centred.
+- **Per-element font size** (Elements). The detail panel has a Font size slider
+  for the selected element, with a Default button that clears the override so the
+  element follows the bar's size again. Commands and minimap labels use it too.
+- Number boxes next to sliders accept values beyond the slider's range: the thumb
+  waits at the end of the track while the typed value is kept. The mouse wheel and
+  arrow keys stop at the ends, or walk back one step at a time from a value typed
+  past them.
 - **Position boxes.** Appearance has X and Y offset boxes (pixels from the anchor
   corner), filled in with where the bar is now and updated when you drag it.
   Typing moves the bar live, Up/Down nudge by a pixel, and a sideways offset off
   the preset margin turns the alignment into "custom".
 - **Texture previews.** The texture list shows each texture next to its name, and
   the closed selector shows the one in use.
-- **End caps redefined.** Flat, **Triangle** (a right triangle at exactly 45
-  degrees, as wide as the bar is high, widest at the top edge and meeting the
-  bar's bottom corner), **Curved 1** (the old rounded cap), **Curved 2** (a
-  quarter circle of radius = bar height centred on the bar's top corner) and
-  **Curved 3** (an S-curve, almost horizontal where it leaves the top and where
-  it lands on the bottom corner). The width setting applies to Curved 1 and 3.
-  Old saved styles carry over ("curved" is Curved 1, the old slant is the
-  Triangle).
+- **End caps redefined.** Flat, **Triangle** (a right triangle, widest at the top
+  edge and meeting the bar's bottom corner; exactly 45 degrees when the cap width
+  equals the bar height), **Curved 1** (the old rounded cap), **Curved 2** (a
+  quarter circle centred on the bar's top corner when the width equals the bar
+  height, otherwise a quarter ellipse) and **Curved 3** (an exaggerated sine
+  half-wave). The width setting applies to every style. Old saved styles carry
+  over ("curved" is Curved 1, the old slant is the Triangle).
 - **Appearance page, complete.** It scrolls and is split into sections:
   - Position: alignment (top left / top centre / top right, or "custom" once the
     bar has been dragged) and the font.

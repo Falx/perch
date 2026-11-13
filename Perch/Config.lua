@@ -167,12 +167,18 @@ function UI.editbox(parent, x, y, width, getter, setter, options)
 end
 
 -- Slider with a number box. The box only takes numbers, follows the slider while
--- you type (inside the range), and snaps/clamps when you press Enter. The mouse
--- wheel over the slider and Up/Down in the box step by one slider step.
-function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, format, default)
+-- you type, and snaps when you press Enter. The mouse wheel over the slider and
+-- Up/Down in the box step by one slider step. A typed number may go beyond the
+-- slider's range: the thumb then waits at the end of the track, but the value is
+-- kept. The mouse wheel and arrow keys stop at the ends unless the value was
+-- typed past them, in which case they walk back one step at a time.
+-- options: width (slider width), inputOffset (x of the number box), isDefault()
+-- and onDefault() for a Default button whose "default" is not a value.
+function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, format, default, options)
+  options = options or {}
   local widget = CreateFrame("Slider", nil, parent)
   widget:SetOrientation("HORIZONTAL")
-  widget:SetSize(280, 16)
+  widget:SetSize(options.width or 280, 16)
   widget:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
   widget:SetMinMaxValues(minimum, maximum)
   widget:SetValueStep(step)
@@ -198,10 +204,17 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
   widget.label:SetText(text)
 
   local pattern = format or "%.2f"
+  local inputOffset = options.inputOffset or 296
 
+  -- Typed values are snapped to the step but not clamped: the number box can go
+  -- past the slider's range.
+  local function snapStep(value)
+    return math.floor(value / step + 0.5) * step
+  end
+
+  -- The slider itself cannot show a value outside its range.
   local function snap(value)
-    value = math.floor(value / step + 0.5) * step
-    return math.max(minimum, math.min(maximum, value))
+    return math.max(minimum, math.min(maximum, snapStep(value)))
   end
 
   local function moveThumb(value)
@@ -214,7 +227,7 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
   local syncDefault = function() end
 
   local input
-  input = UI.editbox(parent, x + 296, y + 2, 56, function()
+  input = UI.editbox(parent, x + inputOffset, y + 2, 56, function()
     return string.format(pattern, getter())
   end, function(typed)
     local number = tonumber(typed)
@@ -222,17 +235,17 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
       widget.refresh()
       return
     end
-    local value = snap(number)
+    local value = snapStep(number)
     setter(value)
     widget.refresh()
   end, {
     maxLetters = 7,
     filter = numericFilter(step < 1),
-    -- Apply as soon as the typed number is a valid in-range value.
+    -- Apply as soon as the typed text is a number, even beyond the slider range.
     onChange = function(typed)
       local number = tonumber(typed)
-      if number and number >= minimum and number <= maximum then
-        local value = snap(number)
+      if number then
+        local value = snapStep(number)
         moveThumb(value)
         setter(value)
         syncDefault(value)
@@ -243,7 +256,8 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
 
   -- "Default" resets the value to its default; it is greyed out while the value
   -- already is the default. default may be a value or a function returning one.
-  if default ~= nil then
+  -- options.onDefault replaces the reset action (e.g. clearing an override).
+  if default ~= nil or options.onDefault then
     local function defaultValue()
       if type(default) == "function" then
         return default()
@@ -251,13 +265,24 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
       return default
     end
 
-    widget.defaultButton = UI.button(parent, "Default", x + 296 + 64, y + 3, function()
-      setter(snap(defaultValue()))
+    widget.defaultButton = UI.button(parent, "Default", x + inputOffset + 64, y + 3, function()
+      if options.onDefault then
+        options.onDefault()
+      else
+        setter(snap(defaultValue()))
+      end
       widget.refresh()
     end, 60)
 
     syncDefault = function(value)
-      widget.defaultButton:SetEnabled(math.abs(value - defaultValue()) > step / 2)
+      local should
+      if options.isDefault then
+        should = not options.isDefault()
+      else
+        should = math.abs(value - defaultValue()) > step / 2
+      end
+      widget.defaultEnabled = should
+      widget.defaultButton:SetEnabled(should and not widget.disabled)
     end
   end
 
@@ -269,7 +294,15 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
   end
 
   local function nudge(direction)
-    local value = snap(getter() + direction * step)
+    local current = getter()
+    local value = snapStep(current + direction * step)
+    -- The ends of the track stop the wheel and arrow keys. A value typed past
+    -- them walks back one step at a time instead of jumping into the range.
+    if direction > 0 and current <= maximum and value > maximum then
+      value = maximum
+    elseif direction < 0 and current >= minimum and value < minimum then
+      value = minimum
+    end
     setter(value)
     widget.refresh()
     -- Keep the typed box in step even while it has focus.
@@ -278,7 +311,7 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
   end
 
   widget:SetScript("OnValueChanged", function(self, value)
-    if self.updating then
+    if self.updating or widget.disabled then
       return
     end
     value = snap(value)
@@ -287,10 +320,16 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
   end)
 
   widget:SetScript("OnMouseWheel", function(_, delta)
+    if widget.disabled then
+      return
+    end
     nudge(delta > 0 and 1 or -1)
   end)
 
   input.box:SetScript("OnArrowPressed", function(_, key)
+    if widget.disabled then
+      return
+    end
     if key == "UP" then
       nudge(1)
     elseif key == "DOWN" then
@@ -302,6 +341,23 @@ function UI.slider(parent, text, x, y, minimum, maximum, step, getter, setter, f
     local value = getter()
     moveThumb(value)
     display(value)
+  end
+
+  -- Greyed out and unclickable, e.g. while another setting makes it moot.
+  widget.setEnabled = function(enabled)
+    enabled = enabled and true or false
+    widget.disabled = not enabled
+    widget:SetAlpha(enabled and 1 or 0.45)
+    widget.label:SetAlpha(enabled and 1 or 0.45)
+    widget:EnableMouse(enabled)
+    widget:EnableMouseWheel(enabled)
+    if input.box.SetEnabled then
+      input.box:SetEnabled(enabled)
+    end
+    input.box:SetAlpha(enabled and 1 or 0.45)
+    if widget.defaultButton then
+      widget.defaultButton:SetEnabled(enabled and widget.defaultEnabled ~= false)
+    end
   end
 
   return widget

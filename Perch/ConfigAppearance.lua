@@ -329,6 +329,42 @@ P:RegisterPage({
     end, function(value)
       P.db.bar.font.size = value
     end))
+
+    -- Some fonts draw their glyphs above or below the middle of the line box.
+    -- This moves every label (and value) up or down to line them up with icons.
+    UI.label(content, "Font Y offset (px)", 24, y, "GameFontHighlight")
+    local nudgeBox
+    nudgeBox = track(UI.editbox(content, 30, y - 20, 90, function()
+      return tostring(math.floor((P.db.bar.font.nudgeY or 0) + 0.5))
+    end, function(text)
+      local number = tonumber(text)
+      if number then
+        P.db.bar.font.nudgeY = number
+        P:ApplyAll()
+      end
+    end, {
+      live = true,
+      maxLetters = 6,
+      filter = signedWholeNumber,
+      onArrow = function(direction)
+        local typed = tonumber(nudgeBox.box:GetText())
+        local shown = typed or (P.db.bar.font.nudgeY or 0)
+        P.db.bar.font.nudgeY = shown + direction
+        P:ApplyAll()
+        nudgeBox.setText(tostring(math.floor(P.db.bar.font.nudgeY + 0.5)))
+      end,
+    }))
+    P.fontNudgeBox = nudgeBox
+    P.fontNudgeDefault = track(UI.button(content, "Default", 130, y - 19, function()
+      P.db.bar.font.nudgeY = 0
+      P:ApplyAll()
+      P:RefreshOptions()
+    end, 60))
+    local nudgeNote = UI.label(content, "Positive moves labels down, negative moves them up. Icons stay centred.", 200, y - 8, "GameFontDisableSmall")
+    nudgeNote:SetWidth(300)
+    nudgeNote:SetJustifyH("LEFT")
+    y = y - 52
+
     addSlider(sliderSpec("Bar height", 14, 40, 1, "%.0f", barValue("height")))
     addSlider(sliderSpec("Spacing", 0, 24, 1, "%.0f", barValue("spacing")))
     addSlider(sliderSpec("Icon size", 8, 32, 1, "%.0f", barValue("iconSize")))
