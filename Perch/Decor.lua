@@ -58,6 +58,10 @@ local PROFILES = {
 -- Caps whose proportions are fixed by their shape: as wide as the bar is high.
 local SQUARE_STYLES = { triangle = true, curved2 = true }
 
+-- Caps that are stretched out sideways: the S-curve needs a long run to look
+-- gentle, so it is this many times as wide as the width setting.
+local STRETCH = { curved3 = 4.5 }
+
 -- The style a side really gets: caps need a solid background to match.
 function P:EffectiveCapStyle(side)
   local db = self.db.bar
@@ -90,6 +94,8 @@ end
 local function rowWidths(style, side, height, width)
   if SQUARE_STYLES[style] then
     width = height
+  else
+    width = width * (STRETCH[style] or 1)
   end
   local widths = {}
   for row = 1, height do

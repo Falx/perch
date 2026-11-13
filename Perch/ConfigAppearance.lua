@@ -268,7 +268,7 @@ P:RegisterPage({
     end, function(value)
       P.db.bar.caps.width = value
     end))
-    local widthNote = UI.label(content, "Applies to Curved 1 and Curved 3. Triangle and Curved 2 are as wide as the bar is high.", 24, y + 6, "GameFontDisableSmall")
+    local widthNote = UI.label(content, "Applies to Curved 1 and Curved 3 (Curved 3 is 4.5 times as wide as this). Triangle and Curved 2 are as wide as the bar is high.", 24, y + 6, "GameFontDisableSmall")
     widthNote:SetWidth(520)
     widthNote:SetJustifyH("LEFT")
     y = y - 22

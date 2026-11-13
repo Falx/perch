@@ -108,6 +108,8 @@ First working build.
 
 ### Fixed
 
+- Curved 3 is stretched 4.5 times along the width (45 pixels at the default cap
+  width of 10), so its shallow ends and straight middle read as a gentle curve.
 - The Y offset now counts downwards like a web page: a negative Y moves the whole
   bar up. The bar is no longer clamped to the screen, so it can be moved partly or
   fully off it; it used to stop at the edge while the command buttons (anchored to

@@ -1612,27 +1612,37 @@ local early = curved2[1] - curved2[6]
 local late = curved2[17] - curved2[22]
 check(late > early, "the arc is flat near the top and steep near the bottom, like a circle")
 
--- Curved 3: an S-curve, almost horizontal at both ends.
+-- Curved 3: a cube-root-style S-curve, stretched 4.5 times along the width.
 PerchDB.bar.caps.left = "curved3"
 P:ApplyAll()
 local curved3 = widths("left")
-check(curved3[1] >= 8 and curved3[1] <= 10, "curved 3 starts near the full cap width at the top")
-check(curved3[11] >= 4 and curved3[11] <= 6, "is about half way across in the middle")
-check(curved3[22] <= 2, "and lands on the bottom corner")
+check(curved3[1] >= 40 and curved3[1] <= 45, "curved 3 starts near 4.5 times the cap width at the top")
+check(curved3[1] >= 4 * 10, "which is at least four times the width the setting says")
+check(curved3[11] >= 21 and curved3[11] <= 24, "is about half way across in the middle")
+check(curved3[22] <= 5, "and lands on the bottom corner")
 for row = 2, 22 do
   check(curved3[row] <= curved3[row - 1], "curved 3 never widens going down (row " .. row .. ")")
 end
 check(curved3[1] - curved3[4] > curved3[10] - curved3[13], "it falls quickly at the ends and levels out in the middle")
-check(curved3[19] - curved3[22] >= 2, "including near the bottom corner")
+check(curved3[19] - curved3[22] >= 6, "including near the bottom corner")
 for row = 1, 22 do
-  check(math.abs(curved3[row] + curved3[23 - row] - 10) <= 1, "curved 3 is point-symmetric like a cube-root plot (row " .. row .. ")")
+  check(math.abs(curved3[row] + curved3[23 - row] - 45) <= 1, "curved 3 is point-symmetric like a cube-root plot (row " .. row .. ")")
 end
 for row = 9, 14 do
-  check(math.abs(curved3[row] - 5) <= 1, "and runs straight down through the middle (row " .. row .. ")")
+  check(math.abs(curved3[row] - 22.5) <= 1, "and runs straight down through the middle (row " .. row .. ")")
 end
+local steepStep, shallowStep = 0, 0
+for row = 2, 4 do
+  steepStep = math.max(steepStep, curved3[row - 1] - curved3[row])
+end
+for row = 11, 13 do
+  shallowStep = math.max(shallowStep, math.abs(curved3[row - 1] - curved3[row]))
+end
+check(steepStep >= 4, "near the ends the edge runs several pixels sideways per row (almost horizontal)")
+check(shallowStep <= 1, "while in the middle it drops straight down")
 PerchDB.bar.caps.width = 20
 P:ApplyAll()
-check(widthOfRow("left", 1) >= 17, "the cap width setting widens curved 3")
+check(widthOfRow("left", 1) >= 80, "the cap width setting still scales curved 3")
 PerchDB.bar.caps.width = 10
 
 -- Old style names carry over.
