@@ -240,6 +240,14 @@ Settings redesign, in four steps (each ends with gates, a commit and an in-game 
 - [ ] Settings profiles and import/export string
 - [ ] Optional LibSharedMedia textures
 - [ ] Tooltip layout and anchor options
+- [ ] **End-cap antialiasing still looks rough.** The current approach smooths the
+      outer edge horizontally only: each row keeps its exact fractional width and
+      the last pixel is drawn with its coverage as alpha. At fractional UI scales
+      the 1 px rows can land between physical pixels, which shows as faint
+      horizontal seams and a still slightly stepped edge. It needs a better
+      approach (for example a generated mask texture per cap shape, or drawing a
+      cap as one textured shape instead of per-row rectangles) and a check in the
+      client at 80%, 100% and 120% UI scale.
 - [ ] README screenshots
 
 ### Phase 4 — release
