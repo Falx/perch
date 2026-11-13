@@ -64,7 +64,7 @@ end
 P:RegisterPage({
   id = "appearance",
   title = "Appearance",
-  scrollHeight = 1200,
+  scrollHeight = 1300,
   build = function(content, track)
     local y = -8
 
@@ -140,6 +140,52 @@ P:RegisterPage({
     offsetNote:SetWidth(380)
     offsetNote:SetJustifyH("LEFT")
     y = y - 26
+
+    -- Centre around: one element on the bar's middle, the rest spread evenly on
+    -- both sides over equal space.
+    local function shownElements()
+      local items = {}
+      for _, key in ipairs(P:OrderedKeys()) do
+        local cell = P:GetCell(key)
+        if cell and (cell.isCommand or cell:IsShown()) then
+          items[#items + 1] = { label = P:ElementTitle(key), value = key }
+        end
+      end
+      return items
+    end
+
+    addCheckbox("Center around an element", function()
+      return P.db.bar.centerMode
+    end, function(value)
+      P.db.bar.centerMode = value
+      if value then
+        -- Start from the middle element unless the old choice is still shown.
+        local items = shownElements()
+        local present = false
+        for _, item in ipairs(items) do
+          if item.value == P.db.bar.centerKey then
+            present = true
+          end
+        end
+        if not present and #items > 0 then
+          P.db.bar.centerKey = items[math.ceil(#items / 2)].value
+        end
+      end
+    end)
+
+    local centerDropdown = UI.dropdown(content, "Centered element", 24, y, 280, shownElements, function()
+      return P.db.bar.centerKey
+    end, function(key)
+      P.db.bar.centerKey = key
+      P:ApplyAll()
+    end)
+    local centerRefresh = centerDropdown.refresh
+    centerDropdown.refresh = function()
+      centerRefresh()
+      centerDropdown.setEnabled(P.db.bar.centerMode)
+    end
+    track(centerDropdown)
+    y = y - 56
 
     track(UI.dropdown(content, "Font", 24, y, 280, function()
       return P:FontItems()

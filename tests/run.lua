@@ -1547,6 +1547,11 @@ P:ApplyAll()
 check(not decor.top:IsShown() and not decor.left:IsShown(), "no border lines when it is off")
 equal(P.bar.bg.points[1][4], 0, "and the background fills the bar")
 
+local function near(actual, expected, message)
+  -- 0.005: below that the antialiasing pixel is not drawn (less than one alpha step).
+  check(math.abs(actual - expected) < 0.005, message .. " (expected " .. expected .. ", got " .. actual .. ")")
+end
+do
 -- End caps.
 local function rowsOf(side)
   return P.decor.rows[side]
@@ -1582,10 +1587,6 @@ local function setCaps(left, right, width)
   PerchDB.bar.caps.right = right
   PerchDB.bar.caps.width = width
   P:ApplyAll()
-end
-local function near(actual, expected, message)
-  -- 0.005: below that the antialiasing pixel is not drawn (less than one alpha step).
-  check(math.abs(actual - expected) < 0.005, message .. " (expected " .. expected .. ", got " .. actual .. ")")
 end
 
 local BAR_HEIGHT = 22
@@ -1844,6 +1845,171 @@ P:ApplyAll()
 P:RefreshOptions()
 
 check(Stub.subcategories[2].frame.scroll ~= nil, "the appearance page scrolls")
+end
+
+-- Vertical alignment and the "centre around" layout.
+section("alignment and centred layout")
+do
+
+local function shownEntries()
+  local list = {}
+  for _, key in ipairs(P:OrderedKeys()) do
+    local cell = P:GetCell(key)
+    if cell and (cell.isCommand or cell:IsShown()) then
+      list[#list + 1] = { key = key, cell = cell }
+    end
+  end
+  return list
+end
+local function xOf(cell)
+  return cell.points[1][4]
+end
+
+P:Layout()
+local normalWidth = P.bar:GetWidth()
+local entries = shownEntries()
+check(#entries >= 5, "there are several elements to lay out")
+
+-- Every icon and label sits on the bar's centre line.
+for _, entry in ipairs(entries) do
+  local cell = entry.cell
+  local point = cell.points[1]
+  equal(point[1], "LEFT", entry.key .. " is anchored by the middle of its left edge")
+  equal(point[5], 0, entry.key .. " has no vertical offset")
+  equal(cell.text.justifyV, "MIDDLE", entry.key .. "'s label is centred vertically")
+  equal(cell.text.height, PerchDB.bar.height, entry.key .. "'s label is as tall as the bar")
+  equal(cell.text.points[1][1], "LEFT", entry.key .. "'s label is anchored by its middle")
+  equal(cell.text.points[1][5], 0, entry.key .. "'s label has no vertical offset")
+  equal(cell.height, PerchDB.bar.height, entry.key .. " is as tall as the bar")
+  if cell.iconVisible then
+    equal(cell.icon.points[1][1], "LEFT", entry.key .. "'s icon is anchored by its middle")
+    equal(cell.icon.points[1][5], 0, entry.key .. "'s icon has no vertical offset")
+  end
+end
+
+local padding, spacing = PerchDB.bar.padding, PerchDB.bar.spacing
+local function natural(list, first, last)
+  local sum, count = 0, 0
+  for index = first, last do
+    sum = sum + list[index].cell.width
+    count = count + 1
+  end
+  return sum + count * spacing, sum, count
+end
+
+-- Centred around the third element.
+local middle = 3
+PerchDB.bar.centerMode = true
+PerchDB.bar.centerKey = entries[middle].key
+P:Layout()
+local width = P.bar:GetWidth()
+local centered = entries[middle].cell
+near(xOf(centered) + centered.width / 2, width / 2, "the chosen element is centred on the bar")
+
+local leftNatural, leftSum = natural(entries, 1, middle - 1)
+local rightNatural, rightSum, rightCount = natural(entries, middle + 1, #entries)
+local span = math.max(leftNatural, rightNatural)
+near(width, padding * 2 + span * 2 + centered.width, "the bar is wide enough for the larger side on both sides")
+near(xOf(centered) - padding, span, "the left side has the larger side's width")
+near(width - padding - (xOf(centered) + centered.width), span, "and so does the right side")
+near(xOf(entries[1].cell), padding, "the first element is flush with the bar's left padding")
+local last = entries[#entries].cell
+near(xOf(last) + last.width, width - padding, "the last element is flush with the right padding")
+
+local function gapsOf(first, last)
+  local gaps = {}
+  for index = first, last - 1 do
+    gaps[#gaps + 1] = xOf(entries[index + 1].cell) - (xOf(entries[index].cell) + entries[index].cell.width)
+  end
+  return gaps
+end
+local leftGaps = gapsOf(1, middle)
+for _, gap in ipairs(leftGaps) do
+  near(gap, leftGaps[1], "elements are spread with equal gaps on the left")
+end
+local rightGaps = gapsOf(middle, #entries)
+for _, gap in ipairs(rightGaps) do
+  near(gap, rightGaps[1], "elements are spread with equal gaps on the right")
+end
+near((span - leftSum) / (middle - 1), leftGaps[1], "the left gap fills the available space")
+near((span - rightSum) / rightCount, rightGaps[1], "the right gap fills the available space")
+check(leftGaps[1] >= spacing - 1e-6 and rightGaps[1] >= spacing - 1e-6, "no side is tighter than the normal spacing")
+check(math.abs(leftGaps[1] - spacing) < 1e-6 or math.abs(rightGaps[1] - spacing) < 1e-6,
+  "the larger side keeps the normal spacing")
+
+-- The first element: nothing on its left, everything on its right.
+PerchDB.bar.centerKey = entries[1].key
+P:Layout()
+local firstNatural = natural(entries, 2, #entries)
+near(P.bar:GetWidth(), padding * 2 + firstNatural * 2 + entries[1].cell.width, "an empty side still takes the larger side's width")
+near(xOf(entries[1].cell) + entries[1].cell.width / 2, P.bar:GetWidth() / 2, "the first element is centred too")
+
+-- The last element.
+PerchDB.bar.centerKey = entries[#entries].key
+P:Layout()
+near(xOf(entries[#entries].cell) + entries[#entries].cell.width / 2, P.bar:GetWidth() / 2, "the last element can be centred")
+
+-- Falling back to the normal layout.
+PerchDB.bar.centerKey = "no such element"
+P:Layout()
+near(P.bar:GetWidth(), normalWidth, "an unknown element means the normal layout")
+PerchDB.bar.centerKey = ""
+P:Layout()
+near(P.bar:GetWidth(), normalWidth, "and so does none")
+PerchDB.bar.centerKey = entries[middle].key
+PerchDB.bar.centerMode = false
+P:Layout()
+near(P.bar:GetWidth(), normalWidth, "switched off, the normal layout is back")
+
+-- The Appearance controls.
+local centerBox = findCheckbox("Center around an element")
+local centerDropdown = findDropdown("Centered element")
+check(centerBox ~= nil and centerDropdown ~= nil, "appearance has the centre around option and its selector")
+check(not centerDropdown.button:IsEnabled(), "the selector is greyed out while the option is off")
+PerchDB.bar.centerKey = ""
+centerBox:SetChecked(true)
+centerBox.scripts.OnClick(centerBox)
+check(PerchDB.bar.centerMode, "the checkbox switches the mode on")
+check(centerDropdown.button:IsEnabled(), "which enables the selector")
+equal(PerchDB.bar.centerKey, entries[math.ceil(#entries / 2)].key, "starting from the middle element")
+near(xOf(entries[math.ceil(#entries / 2)].cell) + entries[math.ceil(#entries / 2)].cell.width / 2,
+  P.bar:GetWidth() / 2, "which is centred straight away")
+
+centerDropdown.button.scripts.OnClick(centerDropdown.button)
+local listed = 0
+for _, row in ipairs(P.UI.GetPicker().rows) do
+  if row:IsShown() then
+    listed = listed + 1
+  end
+end
+equal(listed, #shownEntries(), "the selector lists every element that is shown")
+P.UI.HidePicker()
+check(pickItem(centerDropdown, entries[2].key), "another element can be picked")
+equal(PerchDB.bar.centerKey, entries[2].key, "the choice is stored")
+near(xOf(entries[2].cell) + entries[2].cell.width / 2, P.bar:GetWidth() / 2, "and that element is centred")
+equal(centerDropdown.button.text, P:ElementTitle(entries[2].key), "the selector shows its name")
+
+-- A hidden element is not offered.
+local hiddenKey = entries[#entries].key
+P:SetElementEnabled(hiddenKey, false)
+centerDropdown.button.scripts.OnClick(centerDropdown.button)
+local offered = false
+for _, row in ipairs(P.UI.GetPicker().rows) do
+  if row:IsShown() and row.item.value == hiddenKey then
+    offered = true
+  end
+end
+check(not offered, "an element that is hidden is not offered")
+P.UI.HidePicker()
+P:SetElementEnabled(hiddenKey, true)
+
+centerBox:SetChecked(false)
+centerBox.scripts.OnClick(centerBox)
+check(not centerDropdown.button:IsEnabled(), "switching it off greys the selector out again")
+near(P.bar:GetWidth(), normalWidth, "and the bar goes back to the normal layout")
+PerchDB.bar.centerKey = ""
+P:Layout()
+end
 
 -- Without the subcategory API every page sits behind tabs in one canvas.
 local realSubcategory = Settings.RegisterCanvasLayoutSubcategory

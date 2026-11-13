@@ -503,6 +503,10 @@ local function newFrame(kind, name, parent)
 
   function frame:SetJustifyH() end
 
+  function frame:SetJustifyV(justify)
+    self.justifyV = justify
+  end
+
   function frame:SetMinMaxValues(minimum, maximum)
     self.minimum = minimum
     self.maximum = maximum

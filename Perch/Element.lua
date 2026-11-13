@@ -213,6 +213,10 @@ function P:SizeCell(cell)
 
   cell.text:ClearAllPoints()
   cell.text:SetPoint("LEFT", cell, "LEFT", offset, 0)
+  -- A label as tall as the cell, centred in it: the line box and the icon then
+  -- share one centre line, whatever the font's own spacing.
+  cell.text:SetJustifyV("MIDDLE")
+  cell.text:SetHeight(db.height)
 
   local textWidth = cell.text:GetStringWidth() or 0
   cell.width = offset + textWidth

@@ -9,6 +9,15 @@ First working build.
 
 ### Added
 
+- **Center around an element** (Appearance > Position). With the option on, a
+  selector of the currently shown elements becomes active. The chosen element sits
+  on the bar's middle; the elements before it fill the left side and the ones
+  after it the right side. Both sides get the width of the larger one (at the
+  normal spacing), and each side spreads its elements evenly over that space with
+  equal gaps. A one-sided choice leaves the other side empty but the same width.
+  An unknown or hidden choice falls back to the normal layout.
+- Every label is now explicitly centred vertically in a cell as tall as the bar,
+  so icons and labels (broker, command, minimap) share the bar's centre line.
 - **Position boxes.** Appearance has X and Y offset boxes (pixels from the anchor
   corner), filled in with where the bar is now and updated when you drag it.
   Typing moves the bar live, Up/Down nudge by a pixel, and a sideways offset off

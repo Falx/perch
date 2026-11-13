@@ -239,6 +239,73 @@ function P:RequestLayout()
   end)
 end
 
+-- The x offset of every entry from the bar's left edge, and the bar's width.
+--
+-- Normally entries simply follow each other. With "centre around" the chosen
+-- element sits on the bar's middle: the entries before it fill the left side and
+-- the entries after it the right side, both sides get the width of the larger
+-- one, and each side spreads its entries evenly over that space (the same gap
+-- between neighbours and between the last one and the centred element).
+function P:ComputeOffsets(entries)
+  local db = self.db.bar
+  local padding, spacing = db.padding, db.spacing
+  local offsets = {}
+
+  local center
+  if db.centerMode and db.centerKey and db.centerKey ~= "" then
+    for index, entry in ipairs(entries) do
+      if entry.key == db.centerKey then
+        center = index
+        break
+      end
+    end
+  end
+
+  if not center then
+    local x = padding
+    for index, entry in ipairs(entries) do
+      offsets[index] = x
+      x = x + entry.width + spacing
+    end
+    if #entries > 0 then
+      return offsets, x - spacing + padding
+    end
+    return offsets, padding * 2
+  end
+
+  local function side(first, last)
+    local sum = 0
+    for index = first, last do
+      sum = sum + entries[index].width
+    end
+    return sum, math.max(last - first + 1, 0)
+  end
+  local leftSum, leftCount = side(1, center - 1)
+  local rightSum, rightCount = side(center + 1, #entries)
+
+  -- The larger side at its natural spacing decides how wide both sides are.
+  local span = math.max(leftSum + leftCount * spacing, rightSum + rightCount * spacing)
+  local centerWidth = entries[center].width
+
+  local leftGap = leftCount > 0 and (span - leftSum) / leftCount or 0
+  local x = padding
+  for index = 1, center - 1 do
+    offsets[index] = x
+    x = x + entries[index].width + leftGap
+  end
+
+  offsets[center] = padding + span
+
+  local rightGap = rightCount > 0 and (span - rightSum) / rightCount or 0
+  x = padding + span + centerWidth + rightGap
+  for index = center + 1, #entries do
+    offsets[index] = x
+    x = x + entries[index].width + rightGap
+  end
+
+  return offsets, padding * 2 + span * 2 + centerWidth
+end
+
 function P:Layout()
   local bar = self.bar
   if not bar then
@@ -270,34 +337,35 @@ function P:Layout()
     end
   end
 
-  local offset = db.padding
-  local placed = 0
-  local secureCells = {}
-
+  -- Every cell that takes part: command cells always (they are secure and are
+  -- shown or hidden separately), other cells while they are shown.
+  local entries = {}
   for _, key in ipairs(ordered) do
     local cell = self:GetCell(key)
-    if cell and cell.isCommand then
-      -- Recorded now, positioned after the bar has its final width.
-      secureCells[#secureCells + 1] = { cell = cell, offset = offset }
-      offset = offset + (cell.width or 0) + db.spacing
-      placed = placed + 1
-    elseif cell and cell:IsShown() then
-      -- Explicit offsets from the bar instead of chaining cell to cell, so a
-      -- command cell between two broker cells does not leave a gap in the
-      -- normal chain.
-      cell:ClearAllPoints()
-      cell:SetPoint("LEFT", bar, "LEFT", offset, 0)
-      offset = offset + (cell.width or 0) + db.spacing
-      placed = placed + 1
+    if cell and (cell.isCommand or cell:IsShown()) then
+      entries[#entries + 1] = { key = key, cell = cell, width = cell.width or 0 }
     end
   end
 
-  local width
-  if placed > 0 then
-    width = offset - db.spacing + db.padding
-  else
-    width = db.padding * 2
+  local offsets, width = self:ComputeOffsets(entries)
+  local placed = #entries
+  local secureCells = {}
+
+  for index, entry in ipairs(entries) do
+    local cell = entry.cell
+    if cell.isCommand then
+      -- Recorded now, positioned after the bar has its final width.
+      secureCells[#secureCells + 1] = { cell = cell, offset = offsets[index] }
+    else
+      -- Explicit offsets from the bar instead of chaining cell to cell, so a
+      -- command cell between two broker cells does not leave a gap in the
+      -- normal chain. LEFT is the vertical middle of the bar, which is what keeps
+      -- every icon and label on the centre line.
+      cell:ClearAllPoints()
+      cell:SetPoint("LEFT", bar, "LEFT", offsets[index], 0)
+    end
   end
+
   bar:SetWidth(math.max(width, 1))
   bar:SetHeight(db.height)
 
