@@ -55,7 +55,7 @@ local defaults = {
     caps = {
       left = "none",
       right = "none",
-      width = 10,
+      width = 22,
     },
   },
   elements = {},
@@ -131,6 +131,16 @@ function P:EnsureDB()
     local style = PerchDB.bar.caps[side]
     if renamed[style] then
       PerchDB.bar.caps[side] = renamed[style]
+    end
+  end
+  -- The cap width used to default to 10 and only applied to some shapes. It now
+  -- applies to all of them and defaults to the bar's height (a 45 degree
+  -- triangle), so the old default moves along once.
+  local caps = PerchDB.bar.caps
+  if not caps.widthMigrated then
+    caps.widthMigrated = true
+    if caps.width == 10 then
+      caps.width = defaults.bar.caps.width
     end
   end
   if type(PerchDB.bar) ~= "table" then

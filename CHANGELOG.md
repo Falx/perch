@@ -108,8 +108,6 @@ First working build.
 
 ### Fixed
 
-- Curved 3 is stretched 4.5 times along the width (45 pixels at the default cap
-  width of 10), so its shallow ends and straight middle read as a gentle curve.
 - The Y offset now counts downwards like a web page: a negative Y moves the whole
   bar up. The bar is no longer clamped to the screen, so it can be moved partly or
   fully off it; it used to stop at the edge while the command buttons (anchored to
@@ -117,8 +115,13 @@ First working build.
 - Caps now carry the border along their top and bottom edges as well as the
   slanted/curved one (never on the side against the bar), and are exactly as tall
   as the bar.
-- Curved 3 is now a cube-root-style curve: shallow where it leaves the top and
-  where it lands on the bottom corner, straight down through the middle.
+- Curved 3 is now a sine half-wave: horizontal where it leaves the top and where
+  it lands on the bottom corner, steepest in the middle. A wide one looks like a
+  wave.
+- The end cap width now applies to every cap, including the Triangle and Curved 2
+  (a quarter ellipse when it differs from the bar height). It defaults to the bar
+  height, which makes the Triangle an exact 45 degree slope and Curved 2 a
+  circle, and goes up to 60. The old default of 10 moves to the new default once.
 - A picked background texture never showed: it was multiplied by the background
   colour, which is black by default, so every texture came out black. A textured
   background now shows in its own colours (the alpha still applies); a new

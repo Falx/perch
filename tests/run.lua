@@ -1570,36 +1570,40 @@ local function widths(side)
   end
   return list
 end
+local function setCaps(left, right, width)
+  PerchDB.bar.caps.left = left
+  PerchDB.bar.caps.right = right
+  PerchDB.bar.caps.width = width
+  P:ApplyAll()
+end
 
--- Triangle: a right triangle at 45 degrees, as wide as the bar is high, widest
--- at the top (the screen edge) and meeting the bar's bottom corner.
-PerchDB.bar.caps.width = 10
-PerchDB.bar.caps.left = "triangle"
-PerchDB.bar.caps.right = "triangle"
-P:ApplyAll()
+equal(P.defaults.bar.caps.width, P.defaults.bar.height, "the default cap width is the default bar height")
+
+-- Triangle: a right triangle, widest at the top (the screen edge) and meeting the
+-- bar's bottom corner. It is a 45 degree slope when the width equals the height.
+setCaps("triangle", "triangle", 22)
 for row = 1, 22 do
   equal(widthOfRow("left", row), 23 - row, "triangle row " .. row .. " narrows by one pixel per row (45 degrees)")
   equal(widthOfRow("right", row), 23 - row, "the right triangle mirrors it (row " .. row .. ")")
 end
-equal(widthOfRow("left", 1), P.db.bar.height, "the triangle is as wide as the bar is high")
-PerchDB.bar.caps.width = 30
-P:ApplyAll()
-equal(widthOfRow("left", 1), P.db.bar.height, "the cap width setting does not change the triangle")
-PerchDB.bar.caps.width = 10
+setCaps("triangle", "triangle", 30)
+equal(widthOfRow("left", 1), 30, "the cap width sets the triangle's width")
+equal(widthOfRow("left", 22), 1, "which still ends on the bar's bottom corner")
+setCaps("triangle", "triangle", 11)
+equal(widthOfRow("left", 1), 11, "a narrower triangle is steeper")
+check(widthOfRow("left", 1) - widthOfRow("left", 22) == 10, "narrowing evenly down the bar")
 
 -- Curved 1: the old semi-ellipse bulging out of the bar.
-PerchDB.bar.caps.left = "curved1"
-P:ApplyAll()
+setCaps("curved1", "none", 10)
 local curved1 = widths("left")
 for row = 1, 22 do
   equal(curved1[row], curved1[23 - row], "curved 1 is symmetric top to bottom (row " .. row .. ")")
 end
 check(curved1[11] >= 9 and curved1[1] <= 3, "curved 1 bulges to the cap width in the middle and is narrow at the ends")
 
--- Curved 2: a quarter circle of radius = bar height centred on the bar's top
--- corner, widest at the top and landing on the bottom corner.
-PerchDB.bar.caps.left = "curved2"
-P:ApplyAll()
+-- Curved 2: a quarter circle centred on the bar's top corner, widest at the top
+-- and landing on the bottom corner (a circle when the width equals the height).
+setCaps("curved2", "none", 22)
 local curved2 = widths("left")
 equal(curved2[1], 22, "curved 2 starts a full radius out along the top")
 equal(curved2[11], 19, "and follows a circle (sqrt(22^2 - 10.5^2) is about 19)")
@@ -1607,54 +1611,52 @@ check(curved2[22] >= 4 and curved2[22] <= 6, "to a narrow point at the bottom")
 for row = 2, 22 do
   check(curved2[row] <= curved2[row - 1], "curved 2 never widens going down (row " .. row .. ")")
 end
-check(curved2[2] - curved2[1] >= -1 and curved2[22] < curved2[21] + 1, "and drops fastest near the bottom")
 local early = curved2[1] - curved2[6]
 local late = curved2[17] - curved2[22]
 check(late > early, "the arc is flat near the top and steep near the bottom, like a circle")
+setCaps("curved2", "none", 12)
+equal(widthOfRow("left", 1), 12, "the cap width sets curved 2's width too")
+check(widthOfRow("left", 11) >= 10 and widthOfRow("left", 11) <= 11, "scaling the circle into an ellipse")
 
--- Curved 3: a cube-root-style S-curve, stretched 4.5 times along the width.
-PerchDB.bar.caps.left = "curved3"
-P:ApplyAll()
+-- Curved 3: a sine half-wave, horizontal at both ends, steepest in the middle.
+setCaps("curved3", "none", 10)
 local curved3 = widths("left")
-check(curved3[1] >= 40 and curved3[1] <= 45, "curved 3 starts near 4.5 times the cap width at the top")
-check(curved3[1] >= 4 * 10, "which is at least four times the width the setting says")
-check(curved3[11] >= 21 and curved3[11] <= 24, "is about half way across in the middle")
-check(curved3[22] <= 5, "and lands on the bottom corner")
+check(curved3[1] >= 8 and curved3[1] <= 10, "curved 3 starts near the full cap width at the top")
+check(curved3[11] >= 4 and curved3[11] <= 6, "is about half way across in the middle")
+check(curved3[22] <= 2, "and lands on the bottom corner")
 for row = 2, 22 do
   check(curved3[row] <= curved3[row - 1], "curved 3 never widens going down (row " .. row .. ")")
 end
-check(curved3[1] - curved3[4] > curved3[10] - curved3[13], "it falls quickly at the ends and levels out in the middle")
-check(curved3[19] - curved3[22] >= 6, "including near the bottom corner")
 for row = 1, 22 do
-  check(math.abs(curved3[row] + curved3[23 - row] - 45) <= 1, "curved 3 is point-symmetric like a cube-root plot (row " .. row .. ")")
+  check(math.abs(curved3[row] + curved3[23 - row] - 10) <= 1, "curved 3 is point-symmetric like a sine wave (row " .. row .. ")")
 end
-for row = 9, 14 do
-  check(math.abs(curved3[row] - 22.5) <= 1, "and runs straight down through the middle (row " .. row .. ")")
+-- The profile of a sine half-wave: row = (1 - cos(pi * u)) / 2 across the cap.
+setCaps("curved3", "none", 40)
+local wide3 = widths("left")
+for row = 1, 22 do
+  local t = (row - 0.5) / 22
+  local expected = 40 * (1 - math.acos(1 - 2 * t) / math.pi)
+  check(math.abs(wide3[row] - expected) <= 0.51, "curved 3 follows the sine profile (row " .. row .. ")")
 end
-local steepStep, shallowStep = 0, 0
-for row = 2, 4 do
-  steepStep = math.max(steepStep, curved3[row - 1] - curved3[row])
-end
-for row = 11, 13 do
-  shallowStep = math.max(shallowStep, math.abs(curved3[row - 1] - curved3[row]))
-end
-check(steepStep >= 4, "near the ends the edge runs several pixels sideways per row (almost horizontal)")
-check(shallowStep <= 1, "while in the middle it drops straight down")
-PerchDB.bar.caps.width = 20
-P:ApplyAll()
-check(widthOfRow("left", 1) >= 80, "the cap width setting still scales curved 3")
-PerchDB.bar.caps.width = 10
+check(wide3[1] - wide3[2] > wide3[11] - wide3[12], "a wide curved 3 flattens out at the ends, like the top of a wave")
+setCaps("curved3", "none", 20)
+check(widthOfRow("left", 1) >= 17, "the cap width setting widens curved 3")
 
--- Old style names carry over.
+-- Old style names and the old default width carry over.
 PerchDB.bar.caps.left = "curved"
 PerchDB.bar.caps.right = "slant"
 P:EnsureDB()
 equal(PerchDB.bar.caps.left, "curved1", "the old 'curved' is Curved 1")
 equal(PerchDB.bar.caps.right, "triangle", "the old slant became the triangle")
+PerchDB.bar.caps.width = 10
+PerchDB.bar.caps.widthMigrated = nil
+P:EnsureDB()
+equal(PerchDB.bar.caps.width, 22, "the old default width of 10 moves to the bar height")
+PerchDB.bar.caps.width = 14
+P:EnsureDB()
+equal(PerchDB.bar.caps.width, 14, "a width chosen later is never changed")
 
-PerchDB.bar.caps.left = "triangle"
-PerchDB.bar.caps.right = "curved3"
-P:ApplyAll()
+setCaps("triangle", "curved3", 22)
 local leftFill = rowsOf("left").fills[11]
 local leftPoint = leftFill.points[1]
 equal(leftPoint[1], "TOPRIGHT", "a left cap grows out of the bar's left edge")
@@ -1671,8 +1673,7 @@ check(not P.decor.left:IsShown() and not P.decor.right:IsShown(), "a capped end 
 PerchDB.bar.border.enabled = true
 PerchDB.bar.border.size = 1
 PerchDB.bar.border.color = { 0, 1, 0, 1 }
-PerchDB.bar.caps.left = "triangle"
-P:ApplyAll()
+setCaps("triangle", "none", 22)
 for row = 1, 22 do
   equal(widthOfRow("left", row), 23 - row, "the capped border keeps the triangle's shape (row " .. row .. ")")
 end
@@ -1703,15 +1704,13 @@ end
 equal(shownRows, P.db.bar.height, "the cap is exactly as tall as the bar")
 
 PerchDB.bar.border.size = 2
-PerchDB.bar.caps.left = "curved1"
-P:ApplyAll()
+setCaps("curved1", "none", 10)
 rows = rowsOf("left")
 check(rows.borders[1].width == widthOfRow("left", 1) and rows.borders[2].width == widthOfRow("left", 2),
   "a thicker border covers as many top rows as it is thick")
 check(rows.borders[21].width == widthOfRow("left", 21) and rows.borders[22].width == widthOfRow("left", 22),
   "and as many bottom rows")
 PerchDB.bar.border.size = 1
-PerchDB.bar.caps.left = "triangle"
 PerchDB.bar.border.enabled = false
 
 -- A textured background cannot be matched by the caps.

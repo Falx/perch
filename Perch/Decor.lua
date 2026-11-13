@@ -32,7 +32,8 @@ end
 -- bar's bottom corner; left and right ends are mirror images.
 local PROFILES = {
   -- A right triangle: the flat side against the bar, the long side along the
-  -- top, the slanted side coming down at 45 degrees (the width is the height).
+  -- top, narrowing to the bar's bottom corner. It is a 45 degree slope when the
+  -- cap is as wide as the bar is high (the default width).
   triangle = function(t)
     return 1 - t
   end,
@@ -42,25 +43,19 @@ local PROFILES = {
     return math.sqrt(math.max(0, 1 - u * u))
   end,
   -- A quarter circle centred on the bar's top corner: one radius along the top
-  -- edge, the other against the bar, the arc coming down to the bottom.
+  -- edge, the other against the bar, the arc coming down to the bottom (a
+  -- circle when the width equals the bar height, otherwise a quarter ellipse).
   curved2 = function(t)
     return math.sqrt(math.max(0, 1 - t * t))
   end,
-  -- An S-curve like a cube-root plot: shallow (nearly horizontal) where it
-  -- leaves the top and where it lands on the bottom corner, and straight down
-  -- through the middle. Width = (1 + (1 - 2t)^3) / 2.
+  -- A sine half-wave: horizontal where it leaves the top and where it lands on
+  -- the bottom corner, steepest in the middle. The row position follows
+  -- (1 - cos(pi * u)) / 2 across the cap, solved here for the width at each row.
   curved3 = function(t)
-    local u = 1 - 2 * t
-    return 0.5 * (1 + u * u * u)
+    local ratio = math.max(-1, math.min(1, 1 - 2 * t))
+    return 1 - math.acos(ratio) / math.pi
   end,
 }
-
--- Caps whose proportions are fixed by their shape: as wide as the bar is high.
-local SQUARE_STYLES = { triangle = true, curved2 = true }
-
--- Caps that are stretched out sideways: the S-curve needs a long run to look
--- gentle, so it is this many times as wide as the width setting.
-local STRETCH = { curved3 = 4.5 }
 
 -- The style a side really gets: caps need a solid background to match.
 function P:EffectiveCapStyle(side)
@@ -92,20 +87,18 @@ end
 
 -- Pixel widths of every row of one cap.
 local function rowWidths(style, side, height, width)
-  if SQUARE_STYLES[style] then
-    width = height
-  else
-    width = width * (STRETCH[style] or 1)
-  end
   local widths = {}
   for row = 1, height do
+    -- Sampled at the row's centre, except the triangle: its long side starts at
+    -- the full width on the top row.
+    local t = (row - 0.5) / height
     if style == "triangle" then
-      -- Exactly one pixel narrower per row: a 45 degree slope.
-      widths[row] = height - row + 1
-    else
-      local share = PROFILES[style]((row - 0.5) / height, side)
-      widths[row] = math.floor(width * share + 0.5 + 1e-9)
+      t = (row - 1) / height
     end
+    local share = PROFILES[style](t, side)
+    -- The epsilon keeps x.5 from rounding down: a triangle as wide as the bar is
+    -- high must step by exactly one pixel per row (45 degrees).
+    widths[row] = math.floor(width * share + 0.5 + 1e-9)
   end
   return widths
 end
