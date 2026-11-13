@@ -11,8 +11,9 @@ P = _G.Perch
 P.CAP_STYLES = {
   { id = "none", label = "Flat" },
   { id = "triangle", label = "Triangle" },
-  { id = "curved", label = "Curved" },
-  { id = "slant", label = "Slant" },
+  { id = "curved1", label = "Curved 1" },
+  { id = "curved2", label = "Curved 2" },
+  { id = "curved3", label = "Curved 3" },
 }
 
 -- Textures that are one flat colour, so caps can match them.
@@ -26,24 +27,35 @@ function P:IsSolidBackground()
   return type(texture) == "string" and SOLID_TEXTURES[texture:lower()] == true
 end
 
--- Width of a cap row as a share of the cap width. t runs 0 (top) to 1 (bottom);
--- "left" and "right" differ only for the slant, which leans the same way on
--- both ends like a parallelogram.
+-- Width of a cap row as a share of the cap's width. t runs 0 (top of the bar,
+-- the screen edge) to 1 (bottom). Every cap is widest at the top and meets the
+-- bar's bottom corner; left and right ends are mirror images.
 local PROFILES = {
+  -- A right triangle: the flat side against the bar, the long side along the
+  -- top, the slanted side coming down at 45 degrees (the width is the height).
   triangle = function(t)
-    return 1 - math.abs(2 * t - 1)
+    return 1 - t
   end,
-  curved = function(t)
+  -- A semi-ellipse bulging out of the bar.
+  curved1 = function(t)
     local u = 2 * t - 1
     return math.sqrt(math.max(0, 1 - u * u))
   end,
-  slant = function(t, side)
-    if side == "left" then
-      return t
-    end
-    return 1 - t
+  -- A quarter circle centred on the bar's top corner: one radius along the top
+  -- edge, the other against the bar, the arc coming down to the bottom.
+  curved2 = function(t)
+    return math.sqrt(math.max(0, 1 - t * t))
+  end,
+  -- An S-curve: almost horizontal where it leaves the top, down through the
+  -- middle, and almost horizontal again where it lands on the bottom corner.
+  curved3 = function(t)
+    local ratio = math.max(-1, math.min(1, 1 - 2 * t))
+    return 0.5 + math.sin(math.asin(ratio) / 3)
   end,
 }
+
+-- Caps whose proportions are fixed by their shape: as wide as the bar is high.
+local SQUARE_STYLES = { triangle = true, curved2 = true }
 
 -- The style a side really gets: caps need a solid background to match.
 function P:EffectiveCapStyle(side)
@@ -75,10 +87,18 @@ end
 
 -- Pixel widths of every row of one cap.
 local function rowWidths(style, side, height, width)
+  if SQUARE_STYLES[style] then
+    width = height
+  end
   local widths = {}
   for row = 1, height do
-    local share = PROFILES[style]((row - 0.5) / height, side)
-    widths[row] = math.floor(width * share + 0.5)
+    if style == "triangle" then
+      -- Exactly one pixel narrower per row: a 45 degree slope.
+      widths[row] = height - row + 1
+    else
+      local share = PROFILES[style]((row - 0.5) / height, side)
+      widths[row] = math.floor(width * share + 0.5 + 1e-9)
+    end
   end
   return widths
 end

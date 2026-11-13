@@ -36,6 +36,7 @@ local defaults = {
       enabled = true,
       texture = "Interface\\ChatFrame\\ChatFrameBackground",
       color = { 0, 0, 0, 0.5 },
+      tint = false,
     },
     font = {
       name = "Fonts\\FRIZQT__.TTF",
@@ -121,6 +122,15 @@ function P:EnsureDB()
     local bar = PerchDB.bar
     if bar.point ~= "TOP" or bar.relativePoint ~= "TOP" or (bar.x or 0) ~= 0 then
       bar.alignment = "custom"
+    end
+  end
+  -- Cap styles were renamed: "curved" is Curved 1, and the slant became the
+  -- Triangle.
+  local renamed = { curved = "curved1", slant = "triangle" }
+  for _, side in ipairs({ "left", "right" }) do
+    local style = PerchDB.bar.caps[side]
+    if renamed[style] then
+      PerchDB.bar.caps[side] = renamed[style]
     end
   end
   if type(PerchDB.bar) ~= "table" then

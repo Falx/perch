@@ -9,6 +9,20 @@ First working build.
 
 ### Added
 
+- **Position boxes.** Appearance has X and Y offset boxes (pixels from the anchor
+  corner), filled in with where the bar is now and updated when you drag it.
+  Typing moves the bar live, Up/Down nudge by a pixel, and a sideways offset off
+  the preset margin turns the alignment into "custom".
+- **Texture previews.** The texture list shows each texture next to its name, and
+  the closed selector shows the one in use.
+- **End caps redefined.** Flat, **Triangle** (a right triangle at exactly 45
+  degrees, as wide as the bar is high, widest at the top edge and meeting the
+  bar's bottom corner), **Curved 1** (the old rounded cap), **Curved 2** (a
+  quarter circle of radius = bar height centred on the bar's top corner) and
+  **Curved 3** (an S-curve, almost horizontal where it leaves the top and where
+  it lands on the bottom corner). The width setting applies to Curved 1 and 3.
+  Old saved styles carry over ("curved" is Curved 1, the old slant is the
+  Triangle).
 - **Appearance page, complete.** It scrolls and is split into sections:
   - Position: alignment (top left / top centre / top right, or "custom" once the
     bar has been dragged) and the font.
@@ -94,6 +108,13 @@ First working build.
 
 ### Fixed
 
+- A picked background texture never showed: it was multiplied by the background
+  colour, which is black by default, so every texture came out black. A textured
+  background now shows in its own colours (the alpha still applies); a new
+  "Tint a textured background with the colour" option restores the tint.
+- The default background (`ChatFrameBackground`) was missing from the texture
+  list because LibSharedMedia's own "Solid" replaced it; it is now "Default
+  (solid)".
 - Polestar's menu stayed on the minimap: its fade-in tween re-applies the anchor
   it recorded (`psAnchor`, pointing at the real button) on every step, undoing a
   one-time move. Frames moved to the bar cell are now watched while shown and

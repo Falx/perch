@@ -13,7 +13,9 @@ local FALLBACK = {
     ["Skurri"] = "Fonts\\SKURRI.TTF",
   },
   background = {
-    ["Solid"] = "Interface\\ChatFrame\\ChatFrameBackground",
+    -- Named apart from LibSharedMedia's own "Solid" (a different file), so the
+    -- texture Perch uses by default is always in the list.
+    ["Default (solid)"] = "Interface\\ChatFrame\\ChatFrameBackground",
   },
 }
 

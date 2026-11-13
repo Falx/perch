@@ -3,6 +3,13 @@ P = _G.Perch
 
 local UI = P.UI
 
+-- Keeps an optional leading minus and the digits: typed text that cannot be a
+-- whole number is dropped.
+local function signedWholeNumber(text)
+  local sign = text:sub(1, 1) == "-" and "-" or ""
+  return sign .. (text:gsub("[^%d]", ""))
+end
+
 local ALIGNMENT_ITEMS = {
   { label = "Top left", value = "TOPLEFT" },
   { label = "Top center", value = "TOP" },
@@ -57,7 +64,7 @@ end
 P:RegisterPage({
   id = "appearance",
   title = "Appearance",
-  scrollHeight = 1060,
+  scrollHeight = 1200,
   build = function(content, track)
     local y = -8
 
@@ -97,6 +104,40 @@ P:RegisterPage({
     end))
     y = y - 56
 
+    -- Pixel offsets from the anchor corner, filled in with where the bar is now
+    -- (dragging updates them), for fine tuning.
+    local function offsetBox(title, x, key)
+      UI.label(content, title, x, y, "GameFontHighlight")
+      local box
+      box = UI.editbox(content, x + 6, y - 20, 90, function()
+        return tostring(math.floor((P.db.bar[key] or 0) + 0.5))
+      end, function(text)
+        local number = tonumber(text)
+        if number then
+          P:SetBarOffset(key, number)
+        end
+      end, {
+        live = true,
+        maxLetters = 6,
+        filter = signedWholeNumber,
+        onArrow = function(direction)
+          local typed = tonumber(box.box:GetText())
+          local value = P:SetBarOffset(key, (typed or P.db.bar[key] or 0) + direction)
+          box.setText(tostring(value))
+        end,
+      })
+      P.offsetBoxes = P.offsetBoxes or {}
+      P.offsetBoxes[key] = box
+      return track(box)
+    end
+    offsetBox("X offset (px)", 24, "x")
+    offsetBox("Y offset (px)", 150, "y")
+    y = y - 54
+    local offsetNote = UI.label(content, "Measured from the anchor corner. A negative Y moves the bar down.", 24, y, "GameFontDisableSmall")
+    offsetNote:SetWidth(380)
+    offsetNote:SetJustifyH("LEFT")
+    y = y - 26
+
     track(UI.dropdown(content, "Font", 24, y, 280, function()
       return P:FontItems()
     end, function()
@@ -114,7 +155,7 @@ P:RegisterPage({
     track(UI.dropdown(content, "Texture", 24, y, 280, function()
       local items = {}
       for _, entry in ipairs(P:MediaList("background")) do
-        items[#items + 1] = { label = entry.name, value = entry.path }
+        items[#items + 1] = { label = entry.name, value = entry.path, preview = entry.path }
       end
       return items
     end, function()
@@ -141,6 +182,12 @@ P:RegisterPage({
       P:ApplyAll()
     end))
     y = y - 52
+
+    addCheckbox("Tint a textured background with the colour", function()
+      return P.db.bar.background.tint
+    end, function(value)
+      P.db.bar.background.tint = value
+    end)
 
     addSlider(sliderSpec("Background alpha", 0, 1, 0.05, "%.2f", function()
       return P.db.bar.background.color[4] or 0.5
@@ -218,6 +265,10 @@ P:RegisterPage({
     end, function(value)
       P.db.bar.caps.width = value
     end))
+    local widthNote = UI.label(content, "Applies to Curved 1 and Curved 3. Triangle and Curved 2 are as wide as the bar is high.", 24, y + 6, "GameFontDisableSmall")
+    widthNote:SetWidth(520)
+    widthNote:SetJustifyH("LEFT")
+    y = y - 22
 
     --
     -- Size and text

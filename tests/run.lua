@@ -1415,6 +1415,102 @@ PerchDB.bar.x = 0
 P:EnsureDB()
 equal(PerchDB.bar.alignment, "TOP", "an old bar at the default spot is top centre")
 
+-- Pixel offsets: boxes filled with the bar's position, typed values move it.
+P:SetAlignment("TOPRIGHT")
+local offsetX, offsetY = P.offsetBoxes.x, P.offsetBoxes.y
+check(offsetX ~= nil and offsetY ~= nil, "appearance has X and Y offset boxes")
+equal(offsetX.box:GetText(), "-8", "the X box shows the current offset")
+equal(offsetY.box:GetText(), tostring(math.floor(PerchDB.bar.y + 0.5)), "the Y box shows the current offset")
+offsetX.box:SetText("25")
+offsetX.box.scripts.OnTextChanged(offsetX.box, true)
+equal(PerchDB.bar.x, 25, "typing an X offset moves the bar")
+equal(select(4, P.bar:GetPoint()), 25, "straight away")
+equal(PerchDB.bar.alignment, "custom", "an offset off the preset margin makes the alignment custom")
+offsetX.box:SetText("-30")
+offsetX.box.scripts.OnTextChanged(offsetX.box, true)
+equal(PerchDB.bar.x, -30, "offsets can be negative")
+offsetX.box:SetText("12ab-3")
+offsetX.box.scripts.OnTextChanged(offsetX.box, true)
+equal(offsetX.box:GetText(), "123", "only digits are kept (a minus only counts at the start)")
+offsetX.box:SetText("-")
+offsetX.box.scripts.OnTextChanged(offsetX.box, true)
+equal(PerchDB.bar.x, 123, "a lone minus is ignored while typing")
+offsetX.box.scripts.OnEditFocusLost(offsetX.box)
+equal(offsetX.box:GetText(), "123", "and the box reverts when focus is lost")
+offsetX.box:SetText("99999")
+offsetX.box.scripts.OnTextChanged(offsetX.box, true)
+equal(PerchDB.bar.x, 5000, "huge offsets are clamped")
+offsetX.box.scripts.OnArrowPressed(offsetX.box, "DOWN")
+equal(PerchDB.bar.x, 4999, "the arrow keys nudge by one pixel")
+offsetX.box.scripts.OnArrowPressed(offsetX.box, "UP")
+equal(PerchDB.bar.x, 5000, "in both directions")
+
+P:SetAlignment("TOP")
+offsetY.box:SetText("-40")
+offsetY.box.scripts.OnTextChanged(offsetY.box, true)
+equal(PerchDB.bar.y, -40, "typing a Y offset moves the bar")
+equal(PerchDB.bar.alignment, "TOP", "the vertical offset keeps the alignment")
+offsetX.box:SetText("0")
+offsetX.box.scripts.OnTextChanged(offsetX.box, true)
+equal(PerchDB.bar.alignment, "TOP", "an offset equal to the preset margin keeps it")
+
+-- Dragging updates the boxes.
+P.bar:ClearAllPoints()
+P.bar:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 40, -12)
+P:SavePosition()
+equal(offsetX.box:GetText(), "40", "dragging updates the X box")
+equal(offsetY.box:GetText(), "-12", "and the Y box")
+P:SetAlignment("TOP")
+PerchDB.bar.y = -8
+P:RestorePosition()
+P:RefreshOptions()
+
+-- Texture previews and showing a texture on the bar.
+local textureDropdown = findDropdown("Texture")
+check(textureDropdown ~= nil, "appearance has a texture selector")
+check(textureDropdown.button.preview:IsShown(), "the closed selector shows a preview of the current texture")
+equal(textureDropdown.button.preview.texture, PerchDB.bar.background.texture, "of the texture in use")
+textureDropdown.button.scripts.OnClick(textureDropdown.button)
+local firstRow = P.UI.GetPicker().rows[1]
+check(firstRow.preview:IsShown() and firstRow.previewBack:IsShown(), "texture rows show a preview")
+equal(firstRow.preview.texture, firstRow.item.value, "of their own texture")
+P.UI.HidePicker()
+local fontDropdownCheck = findDropdown("Font")
+fontDropdownCheck.button.scripts.OnClick(fontDropdownCheck.button)
+check(not P.UI.GetPicker().rows[1].preview:IsShown(), "rows without a texture show no preview")
+P.UI.HidePicker()
+
+local texturedPath
+for _, entry in ipairs(P:MediaList("background")) do
+  if type(entry.path) == "string" and not entry.path:lower():find("chatframebackground", 1, true)
+    and not entry.path:lower():find("white8x8", 1, true) then
+    texturedPath = entry.path
+    break
+  end
+end
+check(texturedPath ~= nil, "there is a textured background to pick")
+local defaultTexture = PerchDB.bar.background.texture
+check(pickItem(textureDropdown, texturedPath), "a texture can be picked")
+equal(P.bar.bg.texture, texturedPath, "the bar background uses the picked texture")
+equal(P.bar.bg.vertexColor[1], 1, "shown in its own colours, not tinted black by the background colour")
+equal(P.bar.bg.vertexColor[3], 1, "(blue too)")
+equal(P.bar.bg.vertexColor[4], 0.5, "while the alpha still applies")
+PerchDB.bar.background.tint = true
+P:ApplyAll()
+equal(P.bar.bg.vertexColor[1], PerchDB.bar.background.color[1], "with the tint option the background colour tints it")
+local tintBox = findCheckbox("Tint a textured background")
+check(tintBox ~= nil, "appearance has the tint option")
+tintBox:SetChecked(false)
+tintBox.scripts.OnClick(tintBox)
+equal(PerchDB.bar.background.tint, false, "the tint option can be switched off")
+equal(P.bar.bg.vertexColor[1], 1, "and the texture is untinted again")
+check(pickItem(textureDropdown, defaultTexture), "the solid texture can be picked again")
+PerchDB.bar.background.color = { 0.2, 0.4, 0.6, 0.5 }
+P:ApplyAll()
+equal(P.bar.bg.vertexColor[2], 0.4, "a solid background is always tinted with the colour")
+PerchDB.bar.background.color = { 0, 0, 0, 0.5 }
+P:ApplyAll()
+
 -- Border.
 PerchDB.bar.border.enabled = true
 PerchDB.bar.border.size = 2
@@ -1450,25 +1546,82 @@ local function widthOfRow(side, row)
   end
   return total
 end
+local function widths(side)
+  local list = {}
+  for row = 1, 22 do
+    list[row] = widthOfRow(side, row)
+  end
+  return list
+end
 
+-- Triangle: a right triangle at 45 degrees, as wide as the bar is high, widest
+-- at the top (the screen edge) and meeting the bar's bottom corner.
 PerchDB.bar.caps.width = 10
 PerchDB.bar.caps.left = "triangle"
-PerchDB.bar.caps.right = "curved"
+PerchDB.bar.caps.right = "triangle"
 P:ApplyAll()
-local widest = 0
 for row = 1, 22 do
-  widest = math.max(widest, widthOfRow("left", row))
+  equal(widthOfRow("left", row), 23 - row, "triangle row " .. row .. " narrows by one pixel per row (45 degrees)")
+  equal(widthOfRow("right", row), 23 - row, "the right triangle mirrors it (row " .. row .. ")")
 end
-check(widest >= 9 and widest <= 10, "a triangle cap reaches the chosen width at its middle")
-check(widthOfRow("left", 1) <= 1, "and is thin at the top")
-for row = 1, 22 do
-  equal(widthOfRow("left", row), widthOfRow("left", 23 - row), "the triangle is symmetric (row " .. row .. ")")
-end
-local curvedMid = widthOfRow("right", 11)
-local triangleQuarter = widthOfRow("left", 6)
-check(widthOfRow("right", 6) > triangleQuarter, "a curved cap is rounder than a triangle")
-check(curvedMid >= 9, "a curved cap also reaches its width in the middle")
+equal(widthOfRow("left", 1), P.db.bar.height, "the triangle is as wide as the bar is high")
+PerchDB.bar.caps.width = 30
+P:ApplyAll()
+equal(widthOfRow("left", 1), P.db.bar.height, "the cap width setting does not change the triangle")
+PerchDB.bar.caps.width = 10
 
+-- Curved 1: the old semi-ellipse bulging out of the bar.
+PerchDB.bar.caps.left = "curved1"
+P:ApplyAll()
+local curved1 = widths("left")
+for row = 1, 22 do
+  equal(curved1[row], curved1[23 - row], "curved 1 is symmetric top to bottom (row " .. row .. ")")
+end
+check(curved1[11] >= 9 and curved1[1] <= 3, "curved 1 bulges to the cap width in the middle and is narrow at the ends")
+
+-- Curved 2: a quarter circle of radius = bar height centred on the bar's top
+-- corner, widest at the top and landing on the bottom corner.
+PerchDB.bar.caps.left = "curved2"
+P:ApplyAll()
+local curved2 = widths("left")
+equal(curved2[1], 22, "curved 2 starts a full radius out along the top")
+equal(curved2[11], 19, "and follows a circle (sqrt(22^2 - 10.5^2) is about 19)")
+check(curved2[22] >= 4 and curved2[22] <= 6, "to a narrow point at the bottom")
+for row = 2, 22 do
+  check(curved2[row] <= curved2[row - 1], "curved 2 never widens going down (row " .. row .. ")")
+end
+check(curved2[2] - curved2[1] >= -1 and curved2[22] < curved2[21] + 1, "and drops fastest near the bottom")
+local early = curved2[1] - curved2[6]
+local late = curved2[17] - curved2[22]
+check(late > early, "the arc is flat near the top and steep near the bottom, like a circle")
+
+-- Curved 3: an S-curve, almost horizontal at both ends.
+PerchDB.bar.caps.left = "curved3"
+P:ApplyAll()
+local curved3 = widths("left")
+check(curved3[1] >= 8 and curved3[1] <= 10, "curved 3 starts near the full cap width at the top")
+check(curved3[11] >= 4 and curved3[11] <= 6, "is about half way across in the middle")
+check(curved3[22] <= 2, "and lands on the bottom corner")
+for row = 2, 22 do
+  check(curved3[row] <= curved3[row - 1], "curved 3 never widens going down (row " .. row .. ")")
+end
+check(curved3[1] - curved3[4] > curved3[10] - curved3[13], "it falls quickly at the ends and levels out in the middle")
+check(curved3[19] - curved3[22] >= 2, "including near the bottom corner")
+PerchDB.bar.caps.width = 20
+P:ApplyAll()
+check(widthOfRow("left", 1) >= 17, "the cap width setting widens curved 3")
+PerchDB.bar.caps.width = 10
+
+-- Old style names carry over.
+PerchDB.bar.caps.left = "curved"
+PerchDB.bar.caps.right = "slant"
+P:EnsureDB()
+equal(PerchDB.bar.caps.left, "curved1", "the old 'curved' is Curved 1")
+equal(PerchDB.bar.caps.right, "triangle", "the old slant became the triangle")
+
+PerchDB.bar.caps.left = "triangle"
+PerchDB.bar.caps.right = "curved3"
+P:ApplyAll()
 local leftFill = rowsOf("left").fills[11]
 local leftPoint = leftFill.points[1]
 equal(leftPoint[1], "TOPRIGHT", "a left cap grows out of the bar's left edge")
@@ -1481,12 +1634,6 @@ equal(leftFill.colorTexture[4], 0.5, "cap rows use the background's alpha")
 equal(leftFill.colorTexture[1], bg().color[1], "and its colour")
 check(not P.decor.left:IsShown() and not P.decor.right:IsShown(), "a capped end has no straight border line")
 
-PerchDB.bar.caps.left = "slant"
-PerchDB.bar.caps.right = "slant"
-P:ApplyAll()
-check(widthOfRow("left", 3) < widthOfRow("left", 20), "a left slant widens towards the bottom")
-check(widthOfRow("right", 3) > widthOfRow("right", 20), "a right slant widens towards the top")
-
 -- A border on a cap follows its edge without overlapping the fill.
 PerchDB.bar.border.enabled = true
 PerchDB.bar.border.size = 1
@@ -1494,7 +1641,7 @@ PerchDB.bar.border.color = { 0, 1, 0, 1 }
 PerchDB.bar.caps.left = "triangle"
 P:ApplyAll()
 for row = 1, 22 do
-  equal(widthOfRow("left", row), widthOfRow("left", 23 - row), "the capped border keeps the cap's shape (row " .. row .. ")")
+  equal(widthOfRow("left", row), 23 - row, "the capped border keeps the triangle's shape (row " .. row .. ")")
 end
 local capBorder = rowsOf("left").borders[11]
 check(capBorder:IsShown() and capBorder.width >= 1, "the cap has a border part")

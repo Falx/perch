@@ -82,7 +82,14 @@ function P:ApplyBarStyle()
   end
   local color = background.color
   if color then
-    bar.bg:SetVertexColor(color[1] or 0, color[2] or 0, color[3] or 0, color[4] or 0.5)
+    -- A texture has its own colours; tinting it with the (by default black)
+    -- background colour would just turn it black. The colour only tints a
+    -- textured background when asked to; the alpha always applies.
+    if self:IsSolidBackground() or background.tint then
+      bar.bg:SetVertexColor(color[1] or 0, color[2] or 0, color[3] or 0, color[4] or 0.5)
+    else
+      bar.bg:SetVertexColor(1, 1, 1, color[4] or 0.5)
+    end
   end
   if self.ApplyDecor then
     self:ApplyDecor()
@@ -96,6 +103,26 @@ local ALIGNMENTS = {
   TOPRIGHT = -8,
 }
 
+-- Moves the bar by an exact pixel offset from its anchor corner. Moving it
+-- sideways off the preset margin makes the alignment custom.
+function P:SetBarOffset(key, value)
+  if (key ~= "x" and key ~= "y") or not self.bar then
+    return nil
+  end
+  value = math.max(-5000, math.min(5000, math.floor(value + 0.5)))
+  local db = self.db.bar
+  db[key] = value
+  if key == "x" and ALIGNMENTS[db.alignment] ~= value then
+    db.alignment = "custom"
+  end
+  self:RestorePosition()
+  self:RequestLayout()
+  if self.RefreshOptions then
+    self:RefreshOptions()
+  end
+  return value
+end
+
 function P:SetAlignment(id)
   local margin = ALIGNMENTS[id]
   if margin == nil or not self.bar then
@@ -108,6 +135,9 @@ function P:SetAlignment(id)
   db.x = margin
   self:RestorePosition()
   self:RequestLayout()
+  if self.RefreshOptions then
+    self:RefreshOptions()
+  end
   return true
 end
 

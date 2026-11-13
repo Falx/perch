@@ -137,6 +137,10 @@ function UI.editbox(parent, x, y, width, getter, setter, options)
     box:SetScript("OnEnterPressed", function(self)
       self:ClearFocus()
     end)
+    -- A half-typed value (a lone "-") must not stay in the box.
+    box:SetScript("OnEditFocusLost", function()
+      widget.refresh()
+    end)
   else
     box:SetScript("OnEnterPressed", function(self)
       commit()
@@ -146,6 +150,16 @@ function UI.editbox(parent, x, y, width, getter, setter, options)
     box:SetScript("OnEditFocusLost", function()
       commit()
       widget.refresh()
+    end)
+  end
+
+  if options.onArrow then
+    box:SetScript("OnArrowPressed", function(_, key)
+      if key == "UP" then
+        options.onArrow(1)
+      elseif key == "DOWN" then
+        options.onArrow(-1)
+      end
     end)
   end
 
@@ -370,6 +384,15 @@ function UI.ShowPicker(owner, items, current, onPick)
       row.highlight:SetColorTexture(1, 1, 1, 0.12)
       row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
       row.text:SetPoint("LEFT", row, "LEFT", 6, 0)
+      -- Optional picture of the choice (a texture), on a dark backing so even a
+      -- white or see-through texture can be told apart.
+      row.previewBack = row:CreateTexture(nil, "BACKGROUND")
+      row.previewBack:SetSize(72, 14)
+      row.previewBack:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+      row.previewBack:SetColorTexture(0.12, 0.12, 0.12, 1)
+      row.preview = row:CreateTexture(nil, "ARTWORK")
+      row.preview:SetSize(70, 12)
+      row.preview:SetPoint("CENTER", row.previewBack, "CENTER", 0, 0)
       row:SetScript("OnClick", function(self)
         local handler = p.onPick
         UI.HidePicker()
@@ -386,6 +409,18 @@ function UI.ShowPicker(owner, items, current, onPick)
       pcall(row.text.SetFont, row.text, P.DEFAULT_FONT, 12, "")
     end
     row.text:SetText(item.label)
+    row.text:ClearAllPoints()
+    row.text:SetPoint("LEFT", row, "LEFT", 6, 0)
+    if item.preview ~= nil then
+      row.preview:SetTexture(item.preview)
+      row.preview:SetVertexColor(1, 1, 1, 1)
+      row.preview:Show()
+      row.previewBack:Show()
+      row.text:SetPoint("RIGHT", row.previewBack, "LEFT", -6, 0)
+    else
+      row.preview:Hide()
+      row.previewBack:Hide()
+    end
     if item.value == current then
       row.text:SetTextColor(1, 0.82, 0, 1)
     else
@@ -420,16 +455,39 @@ function UI.dropdown(parent, text, x, y, width, getItems, getter, setter)
   button:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y - 20)
   widget.button = button
 
+  -- The closed selector shows the current choice's picture too, when it has one.
+  button.preview = button:CreateTexture(nil, "OVERLAY")
+  button.preview:SetSize(56, 12)
+  button.preview:SetPoint("RIGHT", button, "RIGHT", -10, 0)
+  button.preview:Hide()
+
   widget.refresh = function()
     local current = getter()
     local shown = tostring(current)
+    local preview
     for _, item in ipairs(getItems()) do
       if item.value == current then
         shown = item.label
+        preview = item.preview
         break
       end
     end
     button:SetText(shown)
+    if preview ~= nil then
+      button.preview:SetTexture(preview)
+      button.preview:SetVertexColor(1, 1, 1, 1)
+      button.preview:Show()
+      -- Keep the name clear of the picture.
+      local label = button.GetFontString and button:GetFontString()
+      if label then
+        label:ClearAllPoints()
+        label:SetPoint("LEFT", button, "LEFT", 10, 0)
+        label:SetPoint("RIGHT", button, "RIGHT", -74, 0)
+        label:SetJustifyH("LEFT")
+      end
+    else
+      button.preview:Hide()
+    end
   end
 
   -- Greyed out and unclickable, e.g. while another setting makes it moot.
